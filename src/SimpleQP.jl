@@ -44,7 +44,7 @@ LinearFunction(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(1.0, A,
 outputdim(f::LinearFunction) = isempty(f.As) ? 0 : size(f.As[1], 1)
 numterms(f::LinearFunction) = length(f.xs)
 
-Base.:*(scale::Float64, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(scale, A, x)
+Base.:*(scale::Union{Float64, Base.RefValue{Float64}}, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(scale, A, x)
 Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(A, x)
 
 function Base.:*(scale::Base.RefValue{Float64}, f::LinearFunction)
@@ -94,9 +94,11 @@ end
 
 outputdim(f::AffineFunction) = length(f.constant)
 
-Base.:+(f1::AffineFunction, f2::LinearFunction) = AffineFunction(push!(copy(f1.linearterms), f2), f1.constant)
+Base.:+(f::LinearFunction, c::Vector{Float64}) = AffineFunction(f, c)
+Base.:+(f1::AffineFunction, f2::LinearFunction) = AffineFunction(f1.linear + f2, f1.constant)
 Base.:+(f1::LinearFunction, f2::AffineFunction) = f2 + f1
-Base.:+(f1::AffineFunction, f2::AffineFunction) =
-    AffineFunction(append!(copy(f1.linearterms), f2.linearterms), f1.constant + f2.constant)
+Base.:+(f1::AffineFunction, f2::AffineFunction) = AffineFunction(f1.linear + f2.linear, f1.constant + f2.constant)
+
+(f::AffineFunction)(vals::Associative{Vector{Variable}, Vector{Float64}}) = f.linear(vals) + f.constant
 
 end # module

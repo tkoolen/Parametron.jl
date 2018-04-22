@@ -4,7 +4,7 @@ using Compat
 using Compat.Test
 using SimpleQP
 
-@testset "LinearFunction" begin
+@testset "LinearFunction basics" begin
     x = [Variable(1), Variable(2)]
     A1 = [1.0 2.0; 3.0 4.0]
     f1 = A1 * x
@@ -28,6 +28,50 @@ using SimpleQP
 
     f7 = A1 * x - 0.5 * A2 * x
     @test f7(vals) == A1 * vals[x] - 0.5 * A2 * vals[x]
+end
+
+@testset "LinearFunction modification" begin
+    x = [Variable(1), Variable(2)]
+    A1 = [1.0 2.0; 3.0 4.0]
+    vals = Dict(x => [2.0, 5.0])
+    p = Ref(0.5)
+    f1 = p * A1 * x
+    f1val = f1(vals)
+    p[] = 2.0
+    @test f1(vals) == 4.0 * f1val
+
+    f1val = f1(vals)
+    A1 .*= 2
+    @test f1(vals) == 2 * f1val
+end
+
+@testset "LinearFunction sum" begin
+    x = [Variable(1), Variable(2)]
+    y = [Variable(3), Variable(4)]
+    A1 = [1.0 2.0; 3.0 4.0]
+    A2 = [4.0 5.0; 6.0 7.0]
+    vals = Dict(x => [2.0, 5.0], y => [-1.0, 2.0])
+
+    f1 = 0.3 * A1 * x
+    f2 = 2.0 * A2 * y
+    f3 = f1 + f2
+    @test f3(vals) == f1(vals) + f2(vals)
+
+    p = Ref(2.0)
+    f4 = 0.3 * A1 * x + p * A2 * y
+    @test f4(vals) == f3(vals)
+end
+
+@testset "AffineFunction" begin
+    x = [Variable(1), Variable(2), Variable(3)]
+    y = [Variable(3), Variable(4), Variable(5)]
+    A1 = [1.0 2.0 3.0; 3.0 4.0 5.0]
+    A2 = [4.0 5.0 5.0; 6.0 7.0 8.0]
+    vals = Dict(x => [2.0, 5.0, 0.5], y => [-1.0, 2.0, 4.5])
+    c = [0.1, 0.8]
+
+    f = A1 * x - 3.0 * A2 * y + c
+    @test f(vals) == A1 * vals[x] - 3.0 * A2 * vals[y] + c
 end
 
 end

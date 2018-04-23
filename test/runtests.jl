@@ -124,6 +124,7 @@ end
     Q = Symmetric(speye(n))
     objective = quad(Q, x)
     setobjective!(model, Senses.Min, objective)
+    initialize!(model)
 end
 
 end

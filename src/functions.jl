@@ -58,8 +58,9 @@ struct QuadraticForm
         nterms = length(scales)
         length(As) === nterms || throw(ArgumentError())
         length(xs) === nterms || throw(ArgumentError())
-        @boundscheck begin
-            for i = 1 : nterms
+        for i = 1 : nterms
+            As[i].uplo == 'U' || throw(ArgumentError())
+            @boundscheck begin
                 ni = length(xs[i])
                 size(As[i]) === (ni, ni) || throw(DimensionMismatch())
             end

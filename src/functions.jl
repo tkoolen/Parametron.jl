@@ -114,6 +114,19 @@ for Function in [LinearFunction, QuadraticForm]
         end
 
         Base.:-(f1::$Function, f2::$Function) = f1 + -f2
+
+        function Compat.copyto!(dest::$Function, src::$Function)
+            nterms = numterms(src)
+            resize!(dest.scales, nterms)
+            resize!(dest.As, nterms)
+            resize!(dest.xs, nterms)
+            for i = 1 : nterms
+                dest.scales[i] = copy(src.scales[i])
+                dest.As[i] = src.As[i]
+                dest.xs[i] = copy(src.xs[i])
+            end
+            dest
+        end
     end
 end
 

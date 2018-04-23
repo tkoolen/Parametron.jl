@@ -74,6 +74,9 @@ end
     p = Ref(2.0)
     f4 = 0.3 * A1 * x + p * A2 * y
     @test f4(vals) == f3(vals)
+
+    copyto!(f1, f4)
+    @test f1(vals) == f4(vals)
 end
 
 @testset "AffineFunction" begin
@@ -110,6 +113,9 @@ end
     @test_throws DimensionMismatch quad(A2, x)
 
     @test QuadraticForm()(vals) == 0.0
+
+    copyto!(f1, f3)
+    @test f1(vals) == f3(vals)
 end
 
 @testset "Model" begin

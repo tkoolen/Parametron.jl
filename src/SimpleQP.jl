@@ -17,8 +17,9 @@ export
     setobjective!,
     solve!
 
+using Compat
 import MathOptInterface
-import CardinalDicts: CardinalDict
+# import CardinalDicts: CardinalDict
 
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities

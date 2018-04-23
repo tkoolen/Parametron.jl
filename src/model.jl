@@ -1,9 +1,13 @@
+struct DataPair{A, B}
+    native::A
+    moi::B
+end
+
 mutable struct Model{O<:MOI.AbstractOptimizer}
     backend::SimpleQPModel{Float64}
     optimizer::O
     initialized::Bool
-    objective::QuadraticForm
-    moiobjective::MOI.ScalarQuadraticFunction{Float64}
+    objective::DataPair{QuadraticForm, MOI.ScalarQuadraticFunction{Float64}}
     optimizer_to_backend::MOIU.IndexMap # FIXME: make type stable
     # constraintfuns::Vector{AffineFunction}
 
@@ -11,10 +15,9 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
         VI = MOI.VariableIndex
         backend = SimpleQPModel{Float64}()
         initialized = false
-        objective = QuadraticForm()
-        moiobjective = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0)
+        objective = DataPair(QuadraticForm(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
         optimizer_to_backend = MOIU.IndexMap()
-        new{O}(backend, optimizer, initialized, objective, moiobjective, optimizer_to_backend)
+        new{O}(backend, optimizer, initialized, objective, optimizer_to_backend)
     end
 end
 
@@ -26,15 +29,15 @@ end
 
 function setobjective!(m::Model, sense::Senses.Sense, f::QuadraticForm)
     m.initialized && error()
-    m.objective = f
+    copyto!(m.objective.native, f)
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
     nothing
 end
 
 function initialize!(m::Model)
     # Objective
-    set!(m.moiobjective, m.objective)
-    MOI.set!(m.backend, MOI.ObjectiveFunction{typeof(m.moiobjective)}(), m.moiobjective)
+    set!(m.objective.moi, m.objective.native)
+    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
 
     # Constraints
 
@@ -53,8 +56,8 @@ function update!(m::Model)
     m.initialized || error()
 
     # Objective
-    set!(m.moiobjective, m.objective)
-    MOI.set!(m.optimizer, MOI.ObjectiveFunction{typeof(m.moiobjective)}(), m.moiobjective)
+    set!(m.objective.moi, m.objective.native)
+    MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
 
     # Constraints
 

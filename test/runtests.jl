@@ -74,4 +74,26 @@ end
     @test f(vals) == A1 * vals[x] - 3.0 * A2 * vals[y] + c
 end
 
+@testset "QuadraticForm" begin
+    n = 4
+    A1 = Symmetric(sparse(triu(reshape(1.0 : n^2, n, n))))
+    x = [Variable(i) for i = 1 : n]
+
+    f1 = quad(A1, x)
+    vals = Dict(x => collect(1.0 : n))
+    @test f1(vals) ≈ dot(vals[x], A1 * vals[x]) atol = 1e-15
+
+    f2 = f1 + 2 * f1
+    @test f2(vals) ≈ 3 * f1(vals) atol = 1e-15
+
+    m = 2
+    y = [Variable(i) for i = 1 : m]
+    vals[y] = collect(7.0 : 6.0 + m)
+    A2 = Symmetric(sparse(triu(reshape(5.0 : 4.0 + m^2, m, m))))
+    f3 = 0.5 * quad(A1, x) + 2 * quad(A2, y)
+    @test f3(vals) ≈ 0.5 * dot(vals[x], A1 * vals[x]) + 2 * dot(vals[y], A2 * vals[y]) atol = 1e-15
+
+    @test_throws DimensionMismatch quad(A2, x)
+end
+
 end

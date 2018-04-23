@@ -127,6 +127,8 @@ end
     SimpleQP.initialize!(model)
     @test model.initialized
 
+    solve!(model)
+
     SimpleQP.update!(model)
 end
 

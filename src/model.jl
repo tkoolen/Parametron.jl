@@ -60,3 +60,13 @@ function update!(m::Model)
 
     nothing
 end
+
+function solve!(m::Model)
+    if m.initialized
+        update!(m)
+    else
+        initialize!(m)
+    end
+    MOI.optimize!(m.optimizer)
+    nothing
+end

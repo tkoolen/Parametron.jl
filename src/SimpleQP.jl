@@ -14,7 +14,8 @@ export
 
 export
     quad,
-    setobjective!
+    setobjective!,
+    solve!
 
 import MathOptInterface
 import CardinalDicts: CardinalDict

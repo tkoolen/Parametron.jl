@@ -5,8 +5,8 @@ MOIU.@model(SimpleQPModel, # modelname
     (), # typedvectorsets
     (), # scalarfunctions
     (ScalarQuadraticFunction,), # typedscalarfunctions
-    (VectorAffineFunction,), # vectorfunctions
-    () # typedvectorfunctions
+    (), # vectorfunctions
+    (VectorAffineFunction,) # typedvectorfunctions
 )
 
 module Senses
@@ -24,30 +24,30 @@ function MOI.OptimizationSense(sense::Sense)
         error()
     end
 end
-end
+end # module
 
-function set!(sqf::MOI.ScalarQuadraticFunction, qf::QuadraticForm)
-    sqf.constant == 0.0 || error()
-    empty!(sqf.affine_variables)
-    empty!(sqf.affine_coefficients)
-    resize!(sqf.quadratic_rowvariables, 0)
-    resize!(sqf.quadratic_colvariables, 0)
-    resize!(sqf.quadratic_coefficients, 0)
-    for i = 1 : numterms(qf)
-        scale = prod(s -> s[], qf.scales[i])
-        A = qf.As[i]
+function set!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticForm)
+    moi_f.constant == 0.0 || error()
+    empty!(moi_f.affine_variables)
+    empty!(moi_f.affine_coefficients)
+    empty!(moi_f.quadratic_rowvariables)
+    empty!(moi_f.quadratic_colvariables)
+    empty!(moi_f.quadratic_coefficients)
+    for i = 1 : numterms(f)
+        s = scale(f, i)
+        A = f.As[i]
         Adata = A.data
-        x = qf.xs[i]
+        x = f.xs[i]
         @inbounds for col = 1 : Adata.n, k = Adata.colptr[col] : (Adata.colptr[col + 1] - 1) # from sparse findn
             row = Adata.rowval[k]
             if row <= col # upper triangle
-                push!(sqf.quadratic_rowvariables, x[row].index)
-                push!(sqf.quadratic_colvariables, x[col].index)
-                push!(sqf.quadratic_coefficients, scale * Adata.nzval[k])
+                push!(moi_f.quadratic_rowvariables, x[row].index)
+                push!(moi_f.quadratic_colvariables, x[col].index)
+                push!(moi_f.quadratic_coefficients, s * Adata.nzval[k])
             end
         end
     end
-    sqf
+    moi_f
 end
 
 function MOI.ScalarQuadraticFunction(f::QuadraticForm)
@@ -55,4 +55,45 @@ function MOI.ScalarQuadraticFunction(f::QuadraticForm)
     ret = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0)
     set!(ret, f)
     ret
+end
+
+function set!(moi_f::MOI.VectorAffineFunction, f::AffineFunction)
+    linear = f.linear
+    empty!(moi_f.outputindex)
+    empty!(moi_f.variables)
+    empty!(moi_f.coefficients)
+    @inbounds for i = 1 : numterms(linear)
+        s = scale(linear, i)
+        A = linear.As[i]
+        x = linear.xs[i]
+        indices = CartesianIndices(A)
+        for i in eachindex(A)
+            index = indices[i]
+            row = index[1]
+            col = index[2]
+            push!(moi_f.outputindex, row)
+            push!(moi_f.variables, x[col].index)
+            push!(moi_f.coefficients, A[i])
+        end
+    end
+    resize!(moi_f.constant, outputdim(f))
+    copyto!(moi_f.constant, f.constant)
+    moi_f
+end
+
+function MOI.VectorAffineFunction(f::AffineFunction)
+    VI = MOI.VariableIndex
+    ret = MOI.VectorAffineFunction(Int[], VI[], Float64[], Float64[])
+    set!(ret, f)
+    ret
+end
+
+struct DataPair{A, B}
+    native::A
+    moi::B
+end
+
+function update!(pair::DataPair)
+    # TODO: hash?
+    set!(pair.moi, pair.native)
 end

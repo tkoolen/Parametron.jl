@@ -118,7 +118,7 @@ end
     @test f1(vals) == f3(vals)
 end
 
-@testset "Model" begin
+@testset "Model basics" begin
     optimizer = defaultoptimizer()
     model = Model(optimizer)
     n = 2
@@ -130,8 +130,14 @@ end
     Q = Symmetric(speye(n))
     objective = quad(Q, x)
     setobjective!(model, Senses.Min, objective)
+
+    # cf = eye(n) * x + -ones(n)
+    # add_nonnegative_constraint!(model, cf)
+
+
     SimpleQP.initialize!(model)
     @test model.initialized
+
 
     solve!(model)
 

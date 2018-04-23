@@ -39,8 +39,7 @@ Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(A, x)
 function (f::LinearFunction)(vals::Associative{Vector{Variable}, Vector{Float64}})
     ret = zeros(outputdim(f))
     for i = 1 : numterms(f)
-        scale = prod(s -> s[], f.scales[i])
-        ret += scale * f.As[i] * vals[f.xs[i]]
+        ret += scale(f, i) * f.As[i] * vals[f.xs[i]]
     end
     ret
 end
@@ -80,8 +79,7 @@ quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticForm(Q, x)
 function (f::QuadraticForm)(vals::Associative{Vector{Variable}, Vector{Float64}})
     ret = zero(Float64)
     for i = 1 : numterms(f)
-        scale = prod(s -> s[], f.scales[i])
-        ret += scale * quad(f.As[i], vals[f.xs[i]])
+        ret += scale(f, i) * quad(f.As[i], vals[f.xs[i]])
     end
     ret
 end
@@ -127,6 +125,8 @@ for Function in [LinearFunction, QuadraticForm]
             end
             dest
         end
+
+        scale(f::$Function, i::Int) = prod(s -> s[], f.scales[i])
     end
 end
 

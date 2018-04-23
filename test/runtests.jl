@@ -124,7 +124,10 @@ end
     Q = Symmetric(speye(n))
     objective = quad(Q, x)
     setobjective!(model, Senses.Min, objective)
-    initialize!(model)
+    SimpleQP.initialize!(model)
+    @test model.initialized
+
+    SimpleQP.update!(model)
 end
 
 end

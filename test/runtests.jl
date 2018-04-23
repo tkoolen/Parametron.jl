@@ -3,6 +3,20 @@ module SimpleQPTest
 using Compat
 using Compat.Test
 using SimpleQP
+using OSQP.MathOptInterfaceOSQP
+
+import MathOptInterface
+const MOI = MathOptInterface
+
+function defaultoptimizer()
+    optimizer = OSQPOptimizer()
+    MOI.set!(optimizer, OSQPSettings.Verbose(), false)
+    MOI.set!(optimizer, OSQPSettings.EpsAbs(), 1e-8)
+    MOI.set!(optimizer, OSQPSettings.EpsRel(), 1e-16)
+    MOI.set!(optimizer, OSQPSettings.MaxIter(), 10000)
+    MOI.set!(optimizer, OSQPSettings.AdaptiveRhoInterval(), 25) # required for deterministic behavior
+    optimizer
+end
 
 @testset "LinearFunction basics" begin
     x = [Variable(1), Variable(2)]
@@ -94,6 +108,22 @@ end
     @test f3(vals) ≈ 0.5 * dot(vals[x], A1 * vals[x]) + 2 * dot(vals[y], A2 * vals[y]) atol = 1e-15
 
     @test_throws DimensionMismatch quad(A2, x)
+
+    @test QuadraticForm()(vals) == 0.0
+end
+
+@testset "Model" begin
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    n = 2
+    x = [Variable(model) for _ = 1 : n]
+    x1, x2 = x
+    @test x1.index == MOI.VariableIndex(1)
+    @test x2.index == MOI.VariableIndex(2)
+
+    Q = Symmetric(speye(n))
+    objective = quad(Q, x)
+    setobjective!(model, Senses.Min, objective)
 end
 
 end

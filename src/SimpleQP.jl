@@ -2,6 +2,7 @@ __precompile__()
 
 module SimpleQP
 
+# types
 export
     Variable,
     LinearFunction,
@@ -9,9 +10,11 @@ export
     QuadraticForm,
     Model
 
+# modules
 export
     Senses
 
+# functions
 export
     quad,
     setobjective!,
@@ -19,6 +22,10 @@ export
     add_nonpositive_constraint!,
     add_zero_constraint!,
     solve!
+
+# macros
+export
+    @constraint
 
 using Compat
 import MathOptInterface
@@ -32,5 +39,6 @@ include("util.jl")
 include("functions.jl")
 include("moi_interop.jl")
 include("model.jl")
+include("macros.jl")
 
 end # module

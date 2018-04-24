@@ -141,6 +141,8 @@ struct AffineFunction
     end
 end
 
+AffineFunction(f::LinearFunction) = AffineFunction(f, zeros(outputdim(f)))
+
 outputdim(f::AffineFunction) = length(f.constant)
 
 Base.:+(f::LinearFunction, c::Vector{Float64}) = AffineFunction(f, c)

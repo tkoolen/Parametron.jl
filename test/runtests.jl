@@ -42,6 +42,9 @@ end
 
     f7 = A1 * x - 0.5 * A2 * x
     @test f7(vals) == A1 * vals[x] - 0.5 * A2 * vals[x]
+
+    @test_throws ErrorException spzeros(2, 2) * x
+    @test_throws ErrorException 2.0 * spzeros(2, 2) * x
 end
 
 @testset "LinearFunction modification" begin

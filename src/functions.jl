@@ -34,7 +34,9 @@ outputdim(f::LinearFunction) = isempty(f.As) ? 0 : size(f.As[1], 1)
 numterms(f::LinearFunction) = length(f.xs)
 
 Base.:*(scale::Union{Float64, Base.RefValue{Float64}}, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(scale, A, x)
+Base.:*(scale::Union{Float64, Base.RefValue{Float64}}, A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
 Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(A, x)
+Base.:*(A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
 
 function (f::LinearFunction)(vals::Associative{Vector{Variable}, Vector{Float64}})
     ret = zeros(outputdim(f))

@@ -12,7 +12,7 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
     backend::SimpleQPMOIModel{Float64}
     optimizer::O
     initialized::Bool
-    objective::DataPair{QuadraticForm, MOI.ScalarQuadraticFunction{Float64}}
+    objective::DataPair{QuadraticFunction, MOI.ScalarQuadraticFunction{Float64}}
     nonnegconstraints::Vector{Constraint{MOI.Nonnegatives}}
     nonposconstraints::Vector{Constraint{MOI.Nonpositives}}
     zeroconstraints::Vector{Constraint{MOI.Zeros}}
@@ -22,7 +22,7 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
         VI = MOI.VariableIndex
         backend = SimpleQPMOIModel{Float64}()
         initialized = false
-        objective = DataPair(QuadraticForm(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
+        objective = DataPair(QuadraticFunction(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
         nonnegconstraints = Constraint{MOI.Nonnegatives}[]
         nonposconstraints = Constraint{MOI.Nonpositives}[]
         zeroconstraints = Constraint{MOI.Zeros}[]
@@ -37,11 +37,12 @@ function Variable(m::Model)
     Variable(index)
 end
 
-function setobjective!(m::Model, sense::Senses.Sense, f::QuadraticForm)
+function setobjective!(m::Model, sense::Senses.Sense, f)
     m.initialized && error()
-    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), MOI.ScalarQuadraticFunction(f))
-    MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
-    copyto!(m.objective.native, f)
+    MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense)) # TODO: consider putting in a DataPair as well
+    m.objective.native = convert(QuadraticFunction, f)
+    update!(m.objective)
+    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
     nothing
 end
 
@@ -49,16 +50,17 @@ Base.push!(m::Model, c::Constraint{MOI.Nonnegatives}) = push!(m.nonnegconstraint
 Base.push!(m::Model, c::Constraint{MOI.Nonpositives}) = push!(m.nonposconstraints, c)
 Base.push!(m::Model, c::Constraint{MOI.Zeros}) = push!(m.zeroconstraints, c)
 
-function addconstraint!(m::Model, f::AffineFunction, set::MOI.AbstractVectorSet)
+function addconstraint!(m::Model, f, set::MOI.AbstractVectorSet)
     m.initialized && error()
-    index = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f), set)
-    push!(m, Constraint(index, f, set))
+    f_affine = convert(AffineFunction, f)
+    index = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f_affine), set)
+    push!(m, Constraint(index, f_affine, set))
     nothing
 end
 
-add_nonnegative_constraint!(m::Model, f::AffineFunction) = addconstraint!(m, f, MOI.Nonnegatives(outputdim(f)))
-add_nonpositive_constraint!(m::Model, f::AffineFunction) = addconstraint!(m, f, MOI.Nonpositives(outputdim(f)))
-add_zero_constraint!(m::Model, f::AffineFunction) = addconstraint!(m, f, MOI.Zeros(outputdim(f)))
+add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(outputdim(f)))
+add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(outputdim(f)))
+add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(outputdim(f)))
 
 function initialize!(m::Model)
     # Copy

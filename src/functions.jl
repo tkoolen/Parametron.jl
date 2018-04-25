@@ -10,6 +10,9 @@ export
     AffineFunction,
     QuadraticFunction
 
+export
+    outputdim
+
 import ..SimpleQP: quad
 
 const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
@@ -119,6 +122,7 @@ struct QuadraticFunction <: Fun
         new(quadratic, affine)
     end
 end
+QuadraticFunction() = convert(QuadraticFunction, [0.0])
 outputdim(f::QuadraticFunction) = 1
 @inline isquadratic(::Type{QuadraticFunction}) = true
 (f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)[1]

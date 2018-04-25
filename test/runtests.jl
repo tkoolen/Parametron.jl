@@ -114,8 +114,8 @@ end
     n = 2
     x = [Variable(model) for _ = 1 : n]
     x1, x2 = x
-    @test x1.index == MOI.VariableIndex(1)
-    @test x2.index == MOI.VariableIndex(2)
+    @test x1.index == 1
+    @test x2.index == 2
 
     Q = Symmetric(speye(n))
     objective = quad(Q, x)

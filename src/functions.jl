@@ -7,19 +7,22 @@ export
     QuadraticTerm,
     Scaled,
     Sum,
-    AffineFunction
+    AffineFunction,
+    QuadraticFunction
+
+import ..SimpleQP: quad
 
 const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
 
+abstract type Fun end
 
+# Variable
 struct Variable
     index::Int
 end
 
 
-abstract type Fun end
-
-
+# Constant
 struct Constant <: Fun
     v::Vector{Float64}
 end
@@ -28,6 +31,7 @@ outputdim(f::Constant) = length(f.v)
 (f::Constant)() = f.v
 
 
+# LinearTerm
 struct LinearTerm <: Fun
     A::Matrix{Float64}
     x::Vector{Variable}
@@ -42,15 +46,18 @@ outputdim(f::LinearTerm) = size(f.A, 1)
 (f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
 
 
+# QuadraticTerm
 struct QuadraticTerm <: Fun
     Q::SparseSymmetric64
     x::Vector{Variable}
 end
 QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
+outputdim(f::QuadraticTerm) = 1
 @inline isquadratic(::Type{QuadraticTerm}) = true
 (f::QuadraticTerm)(vals::Associative{Variable, Float64}) = quad(f.Q, getindex.(vals, f.x))
 
 
+# Scaled
 struct Scaled{T<:Fun} <: Fun
     scalar::Float64
     val::T
@@ -62,6 +69,7 @@ outputdim(f::Scaled) = outputdim(f.val)
 (f::Scaled)(x...) = f.scalar * f.val(x...)
 
 
+# Sum
 struct Sum{T<:Fun} <: Fun
     terms::Vector{T}
 
@@ -80,6 +88,7 @@ outputdim(f::Sum) = isempty(f.terms) ? 0 : outputdim(f.terms[1])
 (f::Sum)(x...) = sum(term -> term(x...), f.terms)
 
 
+# AffineFunction
 struct AffineFunction <: Fun
     linear::Sum{Scaled{LinearTerm}}
     constant::Sum{Scaled{Constant}}
@@ -94,6 +103,7 @@ outputdim(f::AffineFunction) = outputdim(f.constant)
 (f::AffineFunction)(vals::Associative{Variable, Float64}) = f.linear(vals) .+ f.constant()
 
 
+# QuadraticFunction
 struct QuadraticFunction <: Fun
     quadratic::Sum{Scaled{QuadraticTerm}}
     affine::AffineFunction
@@ -113,10 +123,11 @@ Base.promote_rule(::Type{T}, ::Type{Scaled{T}}) where {T<:Fun} = Scaled{T}
 Base.promote_rule(::Type{T}, ::Type{Sum{T}}) where {T<:Fun} = Sum{T}
 Base.promote_rule(::Type{T}, ::Type{<:Fun}) where {T<:Fun} = isquadratic(T) ? QuadraticFunction : AffineFunction
 
+
 # Conversion
-Base.convert(::Type{Scaled{T}}, x) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
+Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
 Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
-Base.convert(::Type{Sum{T}}, x) where {T<:Fun} = Sum{T}(T[convert(T, x)])
+Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
 Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
 Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
 Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
@@ -126,21 +137,24 @@ Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) =
     AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
 Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) =
     AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
+Base.convert(::Type{QuadraticFunction}, x::QuadraticFunction) = x
 Base.convert(::Type{QuadraticFunction}, x::QuadraticTerm) = convert(QuadraticFunction, convert(Scaled{QuadraticTerm}, x))
 Base.convert(::Type{QuadraticFunction}, x::Scaled{QuadraticTerm}) =
     convert(QuadraticFunction, convert(Sum{Scaled{QuadraticTerm}}, x))
 Base.convert(::Type{QuadraticFunction}, x::Sum{Scaled{QuadraticTerm}}) =
     QuadraticFunction(x, convert(AffineFunction, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{QuadraticFunction}, x) =
+Base.convert(::Type{QuadraticFunction}, x::Fun) =
     QuadraticFunction(convert(Sum{Scaled{QuadraticTerm}}, QuadraticTerm()), convert(AffineFunction, x))
 
+
 # Operations
+Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), simplify(f)))
 Base.:*(f::Fun, x::Real) = x * f
-Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), f))
 Base.:-(f::Fun) = -1.0 * f
 Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
-Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[f1, f2]))
+Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[simplify(f1), simplify(f2)]))
 Base.:-(f1::Fun, f2::Fun) = f1 + -f2
+
 
 # Simplification
 simplify(f::Fun) = f

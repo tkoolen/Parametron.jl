@@ -14,13 +14,15 @@ using MathOptInterface
 const MOI = MathOptInterface
 const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
 
+
 struct Variable
-    index::MOI.VariableIndex
+    index::MOI.VariableIndex # TODO: Int?
 end
 Variable(index::Int) = Variable(MOI.VariableIndex(index))
 
+
 abstract type Fun end
-# Base.show(io::IO, f::Fun) = print(io, typeof(f)) # FIXME
+
 
 struct Constant <: Fun
     v::Vector{Float64}
@@ -66,7 +68,7 @@ struct Sum{T<:Fun} <: Fun
         isempty(terms) && throw(ArgumentError())
         m = outputdim(terms[1])
         for i = 2 : length(terms)
-            outputdim(terms[i]) == m || throw(ArgumentError())
+            outputdim(terms[i]) == m || throw(DimensionError())
         end
         new{T}(terms)
     end
@@ -88,9 +90,6 @@ end
 outputdim(f::AffineFunction) = outputdim(f.constant)
 (f::AffineFunction)(vals::Associative{Variable, Float64}) = f.linear(vals) .+ f.constant()
 
-Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearTerm(A, x)
-Base.:*(A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
-quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
 
 # Promotion
 Base.promote_rule(::Type{T}, ::Type{T}) where {T<:Fun} = T
@@ -107,8 +106,10 @@ Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, conv
 Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
 Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
 Base.convert(::Type{AffineFunction}, x::Scaled{LinearTerm}) = convert(AffineFunction, convert(Sum{Scaled{LinearTerm}}, x))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) = AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) = AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
+Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) =
+    AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
+Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) =
+    AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
 
 # Operations
 Base.:*(f::Fun, x::Real) = x * f

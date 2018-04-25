@@ -1,155 +1,148 @@
+module Functions
+
+export
+    Variable,
+    Constant,
+    LinearTerm,
+    QuadraticTerm,
+    Scaled,
+    Sum,
+    AffineFunction
+
+using MathOptInterface
+
+const MOI = MathOptInterface
+const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
+
 struct Variable
     index::MOI.VariableIndex
 end
 Variable(index::Int) = Variable(MOI.VariableIndex(index))
 
-struct LinearFunction
-    scales::Vector{Vector{Base.RefValue{Float64}}}
-    As::Vector{Matrix{Float64}}
-    xs::Vector{Vector{Variable}}
+abstract type Fun end
+# Base.show(io::IO, f::Fun) = print(io, typeof(f)) # FIXME
 
-    function LinearFunction(
-            scales::Vector{Vector{Base.RefValue{Float64}}},
-            As::Vector{Matrix{Float64}},
-            xs::Vector{Vector{Variable}})
-        nterms = length(scales)
-        length(As) === nterms || throw(ArgumentError())
-        length(xs) === nterms || throw(ArgumentError())
-        @boundscheck begin
-            m = isempty(As) ? 0 : size(As[1], 1)
-            for i = 1 : nterms
-                size(As[i], 1) === m || throw(DimensionMismatch())
-                size(As[i], 2) === length(xs[i]) || throw(DimensionMismatch())
-            end
-        end
-        new(scales, As, xs)
+struct Constant <: Fun
+    v::Vector{Float64}
+end
+outputdim(f::Constant) = length(f.v)
+(f::Constant)() = f.v
+
+
+struct LinearTerm <: Fun
+    A::Matrix{Float64}
+    x::Vector{Variable}
+
+    function LinearTerm(A::Matrix{Float64}, x::Vector{Variable})
+        size(A, 2) === length(x) || error()
+        new(A, x)
     end
 end
+outputdim(f::LinearTerm) = size(f.A, 1)
+(f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
 
-LinearFunction(scale::Base.RefValue{Float64}, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction([[scale]], [A], [x])
-LinearFunction(scale::Number, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(Ref(Float64(scale)), A, x)
-LinearFunction(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(1.0, A, x)
 
-outputdim(f::LinearFunction) = isempty(f.As) ? 0 : size(f.As[1], 1)
-numterms(f::LinearFunction) = length(f.xs)
-
-Base.:*(scale::Union{Float64, Base.RefValue{Float64}}, A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(scale, A, x)
-Base.:*(scale::Union{Float64, Base.RefValue{Float64}}, A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
-Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearFunction(A, x)
-Base.:*(A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
-
-function (f::LinearFunction)(vals::Associative{Vector{Variable}, Vector{Float64}})
-    ret = zeros(outputdim(f))
-    for i = 1 : numterms(f)
-        ret += scale(f, i) * f.As[i] * vals[f.xs[i]]
-    end
-    ret
+struct QuadraticTerm <: Fun
+    Q::SparseSymmetric64
+    x::Vector{Variable}
 end
+(f::QuadraticTerm)(vals::Associative{Variable, Float64}) = quad(f.Q, getindex.(vals, f.x))
 
 
-struct QuadraticForm
-    scales::Vector{Vector{Base.RefValue{Float64}}}
-    As::Vector{SparseSymmetric64}
-    xs::Vector{Vector{Variable}}
+struct Scaled{T<:Fun} <: Fun
+    scalar::Float64
+    val::T
+    Scaled{T}(scalar::Float64, val::T) where {T<:Fun} = new{T}(scalar, val)
+end
+Scaled(scalar::Float64, val::T) where {T<:Fun} = Scaled{T}(scalar, val)
+outputdim(f::Scaled) = outputdim(f.val)
+(f::Scaled)(x...) = f.scalar * f.val(x...)
 
-    function QuadraticForm(
-            scales::Vector{Vector{Base.RefValue{Float64}}},
-            As::Vector{SparseSymmetric64},
-            xs::Vector{Vector{Variable}})
-        nterms = length(scales)
-        length(As) === nterms || throw(ArgumentError())
-        length(xs) === nterms || throw(ArgumentError())
-        for i = 1 : nterms
-            As[i].uplo == 'U' || throw(ArgumentError())
-            @boundscheck begin
-                ni = length(xs[i])
-                size(As[i]) === (ni, ni) || throw(DimensionMismatch())
-            end
+
+struct Sum{T<:Fun} <: Fun
+    terms::Vector{T}
+
+    function Sum{T}(terms::Vector{T}) where {T}
+        isempty(terms) && throw(ArgumentError())
+        m = outputdim(terms[1])
+        for i = 2 : length(terms)
+            outputdim(terms[i]) == m || throw(ArgumentError())
         end
-        new(scales, As, xs)
+        new{T}(terms)
     end
 end
-
-QuadraticForm(scale::Base.RefValue{Float64}, Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticForm([[scale]], [Q], [x])
-QuadraticForm(scale::Number, Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticForm(Ref(Float64(scale)), Q, x)
-QuadraticForm(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticForm(1.0, Q, x)
-QuadraticForm() = QuadraticForm(Vector{Vector{Base.RefValue{Float64}}}(), Vector{SparseSymmetric64}(), Vector{Vector{Variable}}())
-
-numterms(f::QuadraticForm) = length(f.xs)
-quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticForm(Q, x)
-
-function (f::QuadraticForm)(vals::Associative{Vector{Variable}, Vector{Float64}})
-    ret = zero(Float64)
-    for i = 1 : numterms(f)
-        ret += scale(f, i) * quad(f.As[i], vals[f.xs[i]])
-    end
-    ret
-end
+Sum(terms::Vector{T}) where {T<:Fun} = Sum{T}(terms)
+outputdim(f::Sum) = isempty(f.terms) ? 0 : outputdim(f.terms[1])
+(f::Sum)(x...) = sum(term -> term(x...), f.terms)
 
 
-for Function in [LinearFunction, QuadraticForm]
-    @eval begin
-        function Base.:*(scale::Base.RefValue{Float64}, f::$Function)
-            scales = [push!(copy(f.scales[i]), scale) for i = 1 : numterms(f)]
-            $Function(scales, f.As, f.xs)
-        end
+struct AffineFunction <: Fun
+    linear::Sum{Scaled{LinearTerm}}
+    constant::Sum{Scaled{Constant}}
 
-        Base.:*(scale::Number, f::$Function) = Ref(Float64(scale)) * f
-        Base.:*(f::$Function, scale::Union{Base.RefValue{Float64}, Number}) = scale * f
-
-        function Base.:+(f1::$Function, f2::$Function)
-            scales = append!(copy(f1.scales), f2.scales)
-            As = append!(copy(f1.As), f2.As)
-            xs = append!(copy(f1.xs), f2.xs)
-            $Function(scales, As, xs)
-        end
-
-        function Base.:-(f::$Function)
-            n = numterms(f)
-            scales = Vector{Vector{Base.RefValue{Float64}}}(n)
-            for i = 1 : n
-                scales[i] = push!(copy(f.scales[i]), Ref(-1.0))
-            end
-            $Function(scales, f.As, f.xs)
-        end
-
-        Base.:-(f1::$Function, f2::$Function) = f1 + -f2
-
-        function Compat.copyto!(dest::$Function, src::$Function)
-            nterms = numterms(src)
-            resize!(dest.scales, nterms)
-            resize!(dest.As, nterms)
-            resize!(dest.xs, nterms)
-            for i = 1 : nterms
-                dest.scales[i] = copy(src.scales[i])
-                dest.As[i] = src.As[i]
-                dest.xs[i] = copy(src.xs[i])
-            end
-            dest
-        end
-
-        scale(f::$Function, i::Int) = prod(s -> s[], f.scales[i])
-    end
-end
-
-
-struct AffineFunction
-    linear::LinearFunction
-    constant::Vector{Float64}
-
-    function AffineFunction(linear::LinearFunction, constant::Vector{Float64})
-        @boundscheck outputdim(linear) === length(constant) || throw(DimensionMismatch())
+    function AffineFunction(linear::Sum{Scaled{LinearTerm}}, constant::Sum{Scaled{Constant}})
+        outputdim(linear) === outputdim(constant) || throw(ArgumentError())
         new(linear, constant)
     end
 end
+outputdim(f::AffineFunction) = outputdim(f.constant)
+(f::AffineFunction)(vals::Associative{Variable, Float64}) = f.linear(vals) .+ f.constant()
 
-AffineFunction(f::LinearFunction) = AffineFunction(f, zeros(outputdim(f)))
+Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearTerm(A, x)
+Base.:*(A::AbstractMatrix, x::Vector{Variable}) = error("Only Matrix{Float64} is supported.")
+quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
 
-outputdim(f::AffineFunction) = length(f.constant)
+# Promotion
+Base.promote_rule(::Type{T}, ::Type{T}) where {T<:Fun} = T
+Base.promote_rule(::Type{T}, ::Type{Scaled{T}}) where {T<:Fun} = Scaled{T}
+Base.promote_rule(::Type{T}, ::Type{Sum{T}}) where {T<:Fun} = Sum{T}
+Base.promote_rule(::Type{<:Fun}, ::Type{<:Fun}) = AffineFunction
 
-Base.:+(f::LinearFunction, c::Vector{Float64}) = AffineFunction(f, c)
-Base.:+(f1::AffineFunction, f2::LinearFunction) = AffineFunction(f1.linear + f2, f1.constant)
-Base.:+(f1::LinearFunction, f2::AffineFunction) = f2 + f1
-Base.:+(f1::AffineFunction, f2::AffineFunction) = AffineFunction(f1.linear + f2.linear, f1.constant + f2.constant)
+# Conversion
+Base.convert(::Type{Scaled{T}}, x) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
+Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
+Base.convert(::Type{Sum{T}}, x) where {T<:Fun} = Sum{T}(T[convert(T, x)])
+Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
+Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
+Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
+Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
+Base.convert(::Type{AffineFunction}, x::Scaled{LinearTerm}) = convert(AffineFunction, convert(Sum{Scaled{LinearTerm}}, x))
+Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) = AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
+Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) = AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
 
-(f::AffineFunction)(vals::Associative{Vector{Variable}, Vector{Float64}}) = f.linear(vals) + f.constant
+# Operations
+Base.:*(f::Fun, x::Real) = x * f
+Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), f))
+Base.:-(f::Fun) = -1.0 * f
+Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
+Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[f1, f2]))
+Base.:-(f1::Fun, f2::Fun) = f1 + -f2
+
+# Simplification
+simplify(f::Fun) = f
+simplify(f::Scaled{<:Scaled}) = simplify(Scaled(f.scalar * f.val.scalar, f.val.val))
+simplify(f::Scaled{<:Sum}) = simplify(Sum([Scaled(f.scalar, term) for term in f.val.terms]))
+
+function simplify(f::Scaled{AffineFunction})
+    linear = simplify(Scaled(f.scalar, f.linear))
+    constant = simplify(Scaled(f.scalar, f.constant))
+    AffineFunction(linear, constant)
+end
+
+function simplify(f::Sum{Sum{T}}) where {T}
+    terms = Vector{T}()
+    for sum in f.terms
+        for term in sum.terms
+            push!(terms, term)
+        end
+    end
+    simplify(Sum(terms))
+end
+
+function simplify(f::Sum{AffineFunction})
+    linear = simplify(Sum([term.linear for term in f.terms]))
+    constant = simplify(Sum([term.constant for term in f.terms]))
+    AffineFunction(linear, constant)
+end
+
+end

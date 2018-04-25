@@ -1,3 +1,7 @@
+functionwrap(x) = x
+functionwrap(x::Vector{Float64}) = Constant(x)
+
+# TODO: use functionwrap:
 macro constraint(m, expr)
     @assert expr.head == :call
     @assert length(expr.args) == 3

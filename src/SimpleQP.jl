@@ -33,12 +33,11 @@ import MathOptInterface
 
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
-const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
 
 include("util.jl")
 include("functions.jl")
-include("moi_interop.jl")
-include("model.jl")
-include("macros.jl")
+# include("moi_interop.jl")
+# include("model.jl")
+# include("macros.jl")
 
 end # module

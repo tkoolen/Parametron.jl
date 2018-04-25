@@ -49,6 +49,12 @@ outputdim(f::LinearTerm) = size(f.A, 1)
 struct QuadraticTerm <: Fun
     Q::SparseSymmetric64
     x::Vector{Variable}
+
+    function QuadraticTerm(Q::SparseSymmetric64, x::Vector{Variable})
+        n = length(x)
+        size(Q) == (n, n) || throw(DimensionMismatch())
+        new(Q, x)
+    end
 end
 quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
 QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
@@ -115,22 +121,23 @@ struct QuadraticFunction <: Fun
 end
 outputdim(f::QuadraticFunction) = 1
 @inline isquadratic(::Type{QuadraticFunction}) = true
-(f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)
+(f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)[1]
 
 
 # Promotion
+Base.promote_rule(::Type{T}, ::Type{Vector{Float64}}) where {T<:Fun} = promote_rule(T, Constant)
 Base.promote_rule(::Type{T}, ::Type{T}) where {T<:Fun} = T
 Base.promote_rule(::Type{T}, ::Type{Scaled{T}}) where {T<:Fun} = Scaled{T}
 Base.promote_rule(::Type{T}, ::Type{Sum{T}}) where {T<:Fun} = Sum{T}
-Base.promote_rule(::Type{T}, ::Type{<:Fun}) where {T<:Fun} = isquadratic(T) ? QuadraticFunction : AffineFunction
+Base.promote_rule(::Type{T}, ::Type{S}) where {T<:Fun, S<:Fun} = isquadratic(T) || isquadratic(S) ? QuadraticFunction : AffineFunction
 
 
 # Conversion
+Base.convert(::Type{T}, x::Vector{Float64}) where {T<:Fun} = convert(T, Constant(x))
 Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
 Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
 Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
 Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
-Base.convert(::Type{AffineFunction}, x::Vector{Float64}) = convert(AffineFunction, Constant(x))
 Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
 Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
 Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
@@ -152,10 +159,10 @@ Base.convert(::Type{QuadraticFunction}, x::Fun) =
 # Operations
 Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), simplify(f)))
 Base.:*(f::Fun, x::Real) = x * f
-Base.:*(s::Real, A::Matrix{Float64}, x::Vector{Variable}) = s * LinearTerm(A, x)
-Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearTerm(A, x)
 Base.:-(f::Fun) = -1.0 * f
 Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
+Base.:+(f::Fun, c::Vector{Float64}) = +(promote(f, c)...)
+Base.:+(c::Vector{Float64}, f::Fun) = +(promote(c, f)...)
 Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[simplify(f1), simplify(f2)]))
 Base.:-(f1::Fun, f2::Fun) = f1 + -f2
 

@@ -62,31 +62,33 @@ end
     @test f(vals) == A1 * getindex.(vals, x) - 3.0 * A2 * getindex.(vals, y) + c
 end
 
-@testset "QuadraticForm" begin
+@testset "Quadratic" begin
     n = 4
     A1 = Symmetric(sparse(triu(reshape(1.0 : n^2, n, n))))
     x = [Variable(i) for i = 1 : n]
 
     f1 = quad(A1, x)
-    vals = Dict(x => collect(1.0 : n))
-    @test f1(vals) ≈ dot(getindex.(vals, x), A1 * getindex.(vals, x)) atol = 1e-15
+    xval = collect(1.0 : n)
+    vals = Dict(zip(x, xval))
+    @test f1(vals) ≈ dot(xval, A1 * xval) atol = 1e-15
 
     f2 = f1 + 2 * f1
     @test f2(vals) ≈ 3 * f1(vals) atol = 1e-15
 
     m = 2
-    y = [Variable(i) for i = 1 : m]
-    vals[y] = collect(7.0 : 6.0 + m)
+    y = [Variable(i) for i = n + 1 : n + m]
+    yval = collect(7.0 : 6.0 + m)
+    merge!(vals, Dict(zip(y, yval)))
     A2 = Symmetric(sparse(triu(reshape(5.0 : 4.0 + m^2, m, m))))
     f3 = 0.5 * quad(A1, x) + 2 * quad(A2, y)
-    @test f3(vals) ≈ 0.5 * dot(getindex.(vals, x), A1 * getindex.(vals, x)) + 2 * dot(vals[y], A2 * vals[y]) atol = 1e-15
+    @test f3(vals) ≈ 0.5 * dot(xval, A1 * xval) + 2 * dot(yval, A2 * yval) atol = 1e-15
+
+    f4 = f3 + [3.0]
+    @test f4(vals) ≈ f3(vals) + 3.0 atol = 1e-15
 
     @test_throws DimensionMismatch quad(A2, x)
 
-    @test QuadraticForm()(vals) == 0.0
-
-    copyto!(f1, f3)
-    @test f1(vals) == f3(vals)
+    @test QuadraticTerm()(vals) == 0.0
 end
 
 using Compat

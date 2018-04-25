@@ -5,9 +5,6 @@ module SimpleQP
 # types
 export
     Variable,
-    LinearFunction,
-    AffineFunction,
-    QuadraticForm,
     Model
 
 # modules
@@ -30,7 +27,6 @@ export
 using Compat
 import MathOptInterface
 import MacroTools: postwalk, @capture
-# import CardinalDicts: CardinalDict
 
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities

@@ -1,5 +1,21 @@
-wrapconstant(x) = x
-wrapconstant(x::Vector{Float64}) = Constant(x)
+# mul_extract_linear_terms(x, y, z...) = mul_extract_linear_terms(mul_extract_linear_terms(x, y), z...)
+# mul_extract_linear_terms(x, y) = x * y
+# mul_extract_linear_terms(x::Matrix{Float64}, y::Vector{Variable}) = LinearTerm(x, y)
+
+# maybe_constant(x) = x
+# maybe_constant(x::Vector{Float64}) = Constant(x)
+
+# function process_expression(expr)
+#     expr = postwalk(expr) do x # turn Vector{Float64} into Constant
+#         if @capture(x, f_(args__))
+#             args = map(arg -> arg isa Symbol ? :(SimpleQP.maybe_constant($arg)) : arg, args)
+#             :($f($(args...)))
+#         else
+#             x
+#         end
+#     end
+#     expr
+# end
 
 macro constraint(m, expr)
     addcon = if @capture(expr, >=(lhs_, rhs_))
@@ -11,10 +27,8 @@ macro constraint(m, expr)
     else
         throw(ArgumentError("Relation not recognized"))
     end
-    lhs = postwalk(x -> x isa Symbol ? :(SimpleQP.wrapconstant($x)) : x, lhs)
-    rhs = postwalk(x -> x isa Symbol ? :(SimpleQP.wrapconstant($x)) : x, rhs)
     quote
-        f = convert(SimpleQP.AffineFunction, $(esc(lhs)) - $(esc(rhs)))
+        f = convert(SimpleQP.AffineFunction, $(esc(lhs))) - convert(SimpleQP.AffineFunction, $(esc(rhs)))
         $addcon($(esc(m)), f)
     end
 end

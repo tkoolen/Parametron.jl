@@ -45,7 +45,6 @@ outputdim(f::LinearTerm) = size(f.A, 1)
 @inline isquadratic(::Type{LinearTerm}) = false
 (f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
 
-
 # QuadraticTerm
 struct QuadraticTerm <: Fun
     Q::SparseSymmetric64
@@ -131,6 +130,7 @@ Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(
 Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
 Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
 Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
+Base.convert(::Type{AffineFunction}, x::Vector{Float64}) = convert(AffineFunction, Constant(x))
 Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
 Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
 Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
@@ -152,6 +152,8 @@ Base.convert(::Type{QuadraticFunction}, x::Fun) =
 # Operations
 Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), simplify(f)))
 Base.:*(f::Fun, x::Real) = x * f
+Base.:*(s::Real, A::Matrix{Float64}, x::Vector{Variable}) = s * LinearTerm(A, x)
+Base.:*(A::Matrix{Float64}, x::Vector{Variable}) = LinearTerm(A, x)
 Base.:-(f::Fun) = -1.0 * f
 Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
 Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[simplify(f1), simplify(f2)]))

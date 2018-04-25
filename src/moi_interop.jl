@@ -1,4 +1,4 @@
-MOIU.@model(SimpleQPModel, # modelname
+MOIU.@model(SimpleQPMOIModel, # modelname
     (), # scalarsets
     (), # typedscalarsets
     (Zeros, Nonnegatives, Nonpositives), # vectorsets

@@ -9,7 +9,7 @@ function Constraint(index::MOI.ConstraintIndex, f::AffineFunction, set::MOI.Abst
 end
 
 mutable struct Model{O<:MOI.AbstractOptimizer}
-    backend::SimpleQPModel{Float64}
+    backend::SimpleQPMOIModel{Float64}
     optimizer::O
     initialized::Bool
     objective::DataPair{QuadraticForm, MOI.ScalarQuadraticFunction{Float64}}
@@ -20,7 +20,7 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
 
     function Model(optimizer::O) where O
         VI = MOI.VariableIndex
-        backend = SimpleQPModel{Float64}()
+        backend = SimpleQPMOIModel{Float64}()
         initialized = false
         objective = DataPair(QuadraticForm(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
         nonnegconstraints = Constraint{MOI.Nonnegatives}[]

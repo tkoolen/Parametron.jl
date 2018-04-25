@@ -1,23 +1,15 @@
 macro constraint(m, expr)
-    @assert expr.head == :call
-    @assert length(expr.args) == 3
-
-    relation = expr.args[1]
-    addcon = if relation == :>=
+    addcon = if @capture(expr, >=(lhs_, rhs_))
         :(SimpleQP.add_nonnegative_constraint!)
-    elseif relation == :(==)
+    elseif @capture(expr, ==(lhs_, rhs_))
         :(SimpleQP.add_zero_constraint!)
-    elseif relation == :<=
+    elseif @capture(expr, <=(lhs_, rhs_))
         :(SimpleQP.add_nonpositive_constraint!)
     else
-        error("relation $(relation) not recognized.")
+        throw(ArgumentError("Relation not recognized"))
     end
-
-    lhs = expr.args[2]
-    rhs = expr.args[3]
-
     quote
-        local f = SimpleQP.AffineFunction($(esc(lhs)) - $(esc(rhs)))
+        f = convert(SimpleQP.AffineFunction, $(esc(lhs))) - convert(SimpleQP.AffineFunction, $(esc(rhs)))
         $addcon($(esc(m)), f)
     end
 end

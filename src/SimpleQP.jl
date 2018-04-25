@@ -5,9 +5,6 @@ module SimpleQP
 # types
 export
     Variable,
-    LinearFunction,
-    AffineFunction,
-    QuadraticForm,
     Model
 
 # modules
@@ -29,14 +26,16 @@ export
 
 using Compat
 import MathOptInterface
-# import CardinalDicts: CardinalDict
+import MacroTools: @capture
 
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
-const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
 
 include("util.jl")
 include("functions.jl")
+
+using .Functions
+
 include("moi_interop.jl")
 include("model.jl")
 include("macros.jl")

@@ -2,6 +2,7 @@ module Functions
 
 export
     Variable,
+    Parameter,
     Constant,
     LinearTerm,
     QuadraticTerm,
@@ -22,9 +23,22 @@ struct Variable
 end
 
 
+# Parameter
+struct Parameter{T}
+    val::T
+end
+
+
 # Constant
 struct Constant <: Fun
     v::Vector{Float64}
+
+    function Constant(v::Vector{<:Number})
+        v′ = convert(Vector{Float64}, v)
+        v′ === v && (v′ = copy(v′))
+        new(v′)
+    end
+    Constant(p::Parameter{Vector{Float64}}) = new(p.val)
 end
 outputdim(f::Constant) = length(f.v)
 @inline isquadratic(::Type{Constant}) = false
@@ -36,25 +50,49 @@ struct LinearTerm <: Fun
     A::Matrix{Float64}
     x::Vector{Variable}
 
-    function LinearTerm(A::Matrix{Float64}, x::Vector{Variable})
+    function LinearTerm(A::Matrix{<:Number}, x::Vector{Variable})
         size(A, 2) === length(x) || error()
-        new(A, x)
+        A′ = convert(Matrix{Float64}, A)
+        A′ === A && (A′ = copy(A′))
+        new(A′, x)
+    end
+
+    function LinearTerm(A::Parameter{Matrix{Float64}}, x::Vector{Variable})
+        size(A, 2) === length(x) || error()
+        new(A.val, x)
     end
 end
 outputdim(f::LinearTerm) = size(f.A, 1)
 @inline isquadratic(::Type{LinearTerm}) = false
 (f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
+Base.:*(A::Union{Matrix{<:Number}, Parameter{Matrix{Float64}}}, x::Vector{Variable}) = LinearTerm(A, x)
+
 
 # QuadraticTerm
 struct QuadraticTerm <: Fun
     Q::SparseSymmetric64
     x::Vector{Variable}
+
+    function QuadraticTerm(Q::SparseSymmetric64, x::Vector{Variable})
+        n = length(x)
+        size(Q) == (n, n) || error()
+        new(copy(Q), x)
+    end
+
+    function QuadraticTerm(p::Parameter{SparseSymmetric64}, x::Vector{Variable})
+        n = length(x)
+        Q = p.val
+        size(Q) == (n, n) || error()
+        new(Q, x)
+    end
+
+    QuadraticTerm() = new(Symmetric(spzeros(0, 0)), Variable[])
 end
-quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
-QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
+
 outputdim(f::QuadraticTerm) = 1
 @inline isquadratic(::Type{QuadraticTerm}) = true
 (f::QuadraticTerm)(vals::Associative{Variable, Float64}) = quad(f.Q, getindex.(vals, f.x))
+quad(Q::Union{Parameter{SparseSymmetric64}, SparseSymmetric64}, x::Vector{Variable}) = QuadraticTerm(Q, x)
 
 
 # Scaled
@@ -126,11 +164,11 @@ Base.promote_rule(::Type{T}, ::Type{<:Fun}) where {T<:Fun} = isquadratic(T) ? Qu
 
 
 # Conversion
+Base.convert(::Type{T}, x::Union{Vector{<:Number}, Parameter{Vector{Float64}}}) where {T<:Fun} = convert(T, Constant(x))
 Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
 Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
 Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
 Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
-Base.convert(::Type{AffineFunction}, x::Vector{Float64}) = convert(AffineFunction, Constant(x))
 Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
 Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
 Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))

@@ -1,27 +1,20 @@
-functionwrap(x) = x
-functionwrap(x::Vector{Float64}) = Constant(x)
+wrapconstant(x) = x
+wrapconstant(x::Vector{Float64}) = Constant(x)
 
-# TODO: use functionwrap:
 macro constraint(m, expr)
-    @assert expr.head == :call
-    @assert length(expr.args) == 3
-
-    relation = expr.args[1]
-    addcon = if relation == :>=
+    addcon = if @capture(expr, >=(lhs_, rhs_))
         :(SimpleQP.add_nonnegative_constraint!)
-    elseif relation == :(==)
+    elseif @capture(expr, ==(lhs_, rhs_))
         :(SimpleQP.add_zero_constraint!)
-    elseif relation == :<=
+    elseif @capture(expr, <=(lhs_, rhs_))
         :(SimpleQP.add_nonpositive_constraint!)
     else
-        error("relation $(relation) not recognized.")
+        throw(ArgumentError("Relation not recognized"))
     end
-
-    lhs = expr.args[2]
-    rhs = expr.args[3]
-
+    lhs = postwalk(x -> x isa Symbol ? :(SimpleQP.wrapconstant($x)) : x, lhs)
+    rhs = postwalk(x -> x isa Symbol ? :(SimpleQP.wrapconstant($x)) : x, rhs)
     quote
-        local f = SimpleQP.AffineFunction($(esc(lhs)) - $(esc(rhs)))
+        f = convert(SimpleQP.AffineFunction, $(esc(lhs)) - $(esc(rhs)))
         $addcon($(esc(m)), f)
     end
 end

@@ -29,6 +29,7 @@ export
 
 using Compat
 import MathOptInterface
+import MacroTools: postwalk, @capture
 # import CardinalDicts: CardinalDict
 
 const MOI = MathOptInterface
@@ -36,8 +37,11 @@ const MOIU = MathOptInterface.Utilities
 
 include("util.jl")
 include("functions.jl")
+
+using .Functions
+
 # include("moi_interop.jl")
 # include("model.jl")
-# include("macros.jl")
+include("macros.jl")
 
 end # module

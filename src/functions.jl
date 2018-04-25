@@ -51,6 +51,7 @@ struct QuadraticTerm <: Fun
     Q::SparseSymmetric64
     x::Vector{Variable}
 end
+quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
 QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
 outputdim(f::QuadraticTerm) = 1
 @inline isquadratic(::Type{QuadraticTerm}) = true
@@ -113,6 +114,7 @@ struct QuadraticFunction <: Fun
         new(quadratic, affine)
     end
 end
+outputdim(f::QuadraticFunction) = 1
 @inline isquadratic(::Type{QuadraticFunction}) = true
 (f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)
 

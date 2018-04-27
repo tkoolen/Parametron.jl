@@ -41,6 +41,7 @@ function setobjective!(m::Model, sense::Senses.Sense, f)
     m.initialized && error()
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense)) # TODO: consider putting in a DataPair as well
     m.objective.native = convert(QuadraticFunction, f)
+    m.objective.moi = MOI.ScalarQuadraticFunction(m.objective.native)
     update!(m.objective)
     MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
     nothing
@@ -105,4 +106,12 @@ function solve!(m::Model)
     update!(m)
     MOI.optimize!(m.optimizer)
     nothing
+end
+
+function value(m::Model, x::Variable)
+    MOI.get(m.optimizer, MOI.VariablePrimal(), MOI.VariableIndex(x))
+end
+
+function objectivevalue(m::Model)
+    MOI.get(m.optimizer, MOI.ObjectiveValue())
 end

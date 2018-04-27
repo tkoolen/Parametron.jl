@@ -18,7 +18,9 @@ export
     add_nonnegative_constraint!,
     add_nonpositive_constraint!,
     add_zero_constraint!,
-    solve!
+    solve!,
+    value,
+    objectivevalue
 
 # macros
 export

@@ -35,7 +35,7 @@ function Compat.copyto!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction
     @inbounds for scaled in affine.constant.terms
         constant += scaled.scalar * scaled.val.v[1]
     end
-    moi_f.constant == constant || throw(ArgumentError())
+    moi_f.constant == constant || throw(ArgumentError("MOI ScalarQuadraticFunction constant can't be modified."))
 
     empty!(moi_f.affine_variables)
     empty!(moi_f.affine_coefficients)
@@ -66,7 +66,7 @@ function Compat.copyto!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction
             if row <= col # upper triangle
                 push!(moi_f.quadratic_rowvariables, MOI.VariableIndex(x[row]))
                 push!(moi_f.quadratic_colvariables, MOI.VariableIndex(x[col]))
-                push!(moi_f.quadratic_coefficients, s * Qdata.nzval[k]) # FIXME: 1/2
+                push!(moi_f.quadratic_coefficients, 2 * s * Qdata.nzval[k])
             end
         end
     end
@@ -75,7 +75,12 @@ end
 
 function MOI.ScalarQuadraticFunction(f::QuadraticFunction)
     VI = MOI.VariableIndex
-    ret = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0)
+    affine = f.affine
+    constant = 0.0
+    @inbounds for scaled in affine.constant.terms
+        constant += scaled.scalar * scaled.val.v[1]
+    end
+    ret = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], constant)
     copyto!(ret, f)
     ret
 end

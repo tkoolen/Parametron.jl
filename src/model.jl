@@ -92,9 +92,15 @@ end
 function update!(m::Model)
     # FIXME: map variables
     updateobjective!(m)
-    updateconstraint!.(m, m.nonnegconstraints)
-    updateconstraint!.(m, m.nonposconstraints)
-    updateconstraint!.(m, m.zeroconstraints)
+    for c in m.nonnegconstraints
+        updateconstraint!(m, c)
+    end
+    for c in m.nonposconstraints
+        updateconstraint!(m, c)
+    end
+    for c in m.zeroconstraints
+        updateconstraint!(m, c)
+    end
     nothing
 end
 

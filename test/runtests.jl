@@ -48,13 +48,21 @@ end
 
     test_unconstrained(model, x, Q, r, s)
 
-    srand(1)
+    rand_data = function (rng)
+        Q[1, 1] = rand(rng)
+        Q[2, 2] = rand(rng)
+        r[1] = rand(rng) - 0.5
+        r[2] = rand(rng) - 0.5
+    end
+    rng = MersenneTwister(1)
     for i = 1 : 10
-        Q[1, 1] = rand()
-        Q[2, 2] = rand()
-        r[1] = rand() - 0.5
-        r[2] = rand() - 0.5
+        rand_data(rng)
         test_unconstrained(model, x, Q, r, s)
+    end
+
+    rand_data(rng)
+    let model = model
+        @allocated solve!(model)
     end
 
     s[1] = 2.0
@@ -62,4 +70,4 @@ end
     s[1] = 1.0
 end
 
-end
+end # module

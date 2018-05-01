@@ -5,7 +5,10 @@ module SimpleQP
 # types
 export
     Variable,
-    Model
+    Model,
+    Constant,
+    LinearTerm,
+    QuadraticTerm
 
 # modules
 export

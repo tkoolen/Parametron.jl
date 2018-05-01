@@ -5,7 +5,6 @@ include("functions.jl")
 using Compat
 using Compat.Test
 using SimpleQP
-using SimpleQP.Functions
 using OSQP.MathOptInterfaceOSQP
 import MathOptInterface
 const MOI = MathOptInterface

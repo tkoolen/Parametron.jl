@@ -69,4 +69,59 @@ end
     s[1] = 1.0
 end
 
+@testset "Model: equality constrained" begin
+    # Minimize ||A x - b||^2 = x' A' A x - (2 * A' * b)' x + b' * b
+    # subject to C x = d
+
+    rand_data! = function (A, b, C, d, rng)
+        rand!(rng, A)
+        rand!(rng, b)
+        rand!(rng, C)
+        rand!(rng, d)
+    end
+
+    update_objective_matrices! = function (P, qt, r, A, b)
+        P.data[:] = triu(A' * A)
+        qt[:] = -2 * b' * A
+        r[:] = b' * b
+    end
+
+    test_equality_constrained = function(A, b, C, D, x; rtol = 1e-4)
+        C⁺ = pinv(C)
+        Q = I - C⁺ * C
+        expected = Q * (pinv(A * Q) * (b - A * C⁺ * d)) + C⁺ * d # note: can be quite badly conditioned
+        @test x ≈ expected rtol = rtol
+    end
+
+    n = 8
+    m = 2
+
+    A = zeros(n, n)
+    b = zeros(n)
+    C = zeros(m, n)
+    d = zeros(m)
+
+    P = Symmetric(sparse(ones(n, n)))
+    qt = zeros(1, n)
+    r = [0.0]
+
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = [Variable(model) for _ = 1 : n]
+    objective = QuadraticTerm(P, x) + LinearTerm(qt, x) #+ r
+    setobjective!(model, Senses.Min, objective)
+    @constraint(model, LinearTerm(C, x) == Constant(d))
+
+    rng = MersenneTwister(1234)
+    for i = 1 : 100
+        rand_data!(A, b, C, d, rng)
+        update_objective_matrices!(P, qt, r, A, b)
+        allocs = @allocated solve!(model)
+        if i > 1
+            @test allocs == 0
+        end
+        test_equality_constrained(A, b, C, d, value.(model, x))
+    end
+end
+
 end # module

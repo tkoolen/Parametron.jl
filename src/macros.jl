@@ -9,7 +9,7 @@ macro constraint(m, expr)
         throw(ArgumentError("Relation not recognized"))
     end
     quote
-        f = convert(SimpleQP.AffineFunction, $(esc(lhs))) - convert(SimpleQP.AffineFunction, $(esc(rhs)))
+        f = convert(SimpleQP.AffineFunction, $(esc(lhs)) - $(esc(rhs)))
         $addcon($(esc(m)), f)
     end
 end

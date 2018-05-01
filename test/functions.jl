@@ -60,6 +60,9 @@ end
 
     f = LinearTerm(A1, x) - 3.0 * LinearTerm(A2, y) + Constant(c)
     @test f(vals) == A1 * getindex.(vals, x) - 3.0 * A2 * getindex.(vals, y) + c
+
+    f2 = convert(AffineFunction, Constant(c))
+    @test (-f2)(vals) == -c
 end
 
 @testset "Quadratic" begin

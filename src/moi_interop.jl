@@ -105,6 +105,7 @@ function Compat.copyto!(moi_f::MOI.VectorAffineFunction, f::AffineFunction)
         end
     end
     resize!(moi_f.constant, outputdim(f))
+    moi_f.constant[:] = 0
     @inbounds for scaled in f.constant.terms
         s = scaled.scalar
         c = scaled.val

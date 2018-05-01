@@ -174,7 +174,7 @@ Base.:-(f1::Fun, f2::Fun) = f1 + -f2
 # Simplification
 simplify(f::Fun) = f
 simplify(f::Scaled{<:Scaled}) = simplify(Scaled(f.scalar * f.val.scalar, f.val.val))
-simplify(f::Scaled{<:Sum}) = simplify(Sum([Scaled(f.scalar, term) for term in f.val.terms]))
+simplify(f::Scaled{<:Sum}) = simplify(Sum([simplify(Scaled(f.scalar, term)) for term in f.val.terms]))
 
 function simplify(f::Scaled{AffineFunction})
     linear = simplify(Scaled(f.scalar, f.val.linear))

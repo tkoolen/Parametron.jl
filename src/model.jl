@@ -63,7 +63,7 @@ add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives
 add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(outputdim(f)))
 add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(outputdim(f)))
 
-function initialize!(m::Model)
+@noinline function initialize!(m::Model)
     # Copy
     result = MOI.copy!(m.optimizer, m.backend)
     if result.status == MOI.CopySuccess
@@ -86,7 +86,7 @@ end
 
 function updateconstraint!(m::Model, constraint::Constraint)
     update!(constraint.fun)
-    MOI.set!(m.optimizer, MOI.ConstraintFunction(), constraint.index, constraint.fun.moi)
+    MOI.modifyconstraint!(m.optimizer, constraint.index, constraint.fun.moi)
 end
 
 function update!(m::Model)
@@ -115,6 +115,7 @@ function solve!(m::Model)
 end
 
 function value(m::Model, x::Variable)
+    # FIXME: map variables
     MOI.get(m.optimizer, MOI.VariablePrimal(), MOI.VariableIndex(x))
 end
 

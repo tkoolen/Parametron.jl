@@ -61,9 +61,8 @@ end
     end
 
     rand_data(rng)
-    let model = model
-        @allocated solve!(model)
-    end
+    allocs = @allocated solve!(model)
+    @test allocs == 0
 
     s[1] = 2.0
     @test_throws ArgumentError solve!(model) # can't modify constant offset

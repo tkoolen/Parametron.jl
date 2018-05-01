@@ -22,7 +22,7 @@ matrix:
 #before_script: # homebrew for mac
 #  - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
 before_script:
-  - julia -e 'Pkg.clone("https://github.com/tkoolen/OSQP.jl.git"); Pkg.checkout("OSQP", "tk/mathoptinterface"); Pkg.build("OSQP")'
+  - julia -e 'Pkg.clone("https://github.com/tkoolen/OSQP.jl.git"); Pkg.checkout("OSQP", "master"); Pkg.build("OSQP")'
 ## uncomment the following lines to override the default test script
 #script:
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("SimpleQP"); Pkg.test("SimpleQP"; coverage=true)'

@@ -1,11 +1,9 @@
-struct Constraint{S<:MOI.AbstractSet}
-    index::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
+mutable struct Constraint{S<:MOI.AbstractSet}
     fun::DataPair{AffineFunction, MOI.VectorAffineFunction{Float64}}
     set::S
-end
-
-function Constraint(index::MOI.ConstraintIndex, f::AffineFunction, set::MOI.AbstractSet)
-    Constraint(index, DataPair(f, MOI.VectorAffineFunction(f)), set)
+    modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
+    optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
+    Constraint(f::AffineFunction, set::S) where {S<:MOI.AbstractSet} = new{S}(DataPair(f, MOI.VectorAffineFunction(f)), set)
 end
 
 mutable struct Model{O<:MOI.AbstractOptimizer}
@@ -16,7 +14,7 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
     nonnegconstraints::Vector{Constraint{MOI.Nonnegatives}}
     nonposconstraints::Vector{Constraint{MOI.Nonpositives}}
     zeroconstraints::Vector{Constraint{MOI.Zeros}}
-    optimizer_to_backend::MOIU.IndexMap # FIXME: make type stable
+    user_var_to_optimizer::Vector{MOI.VariableIndex}
 
     function Model(optimizer::O) where O
         VI = MOI.VariableIndex
@@ -26,8 +24,8 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
         nonnegconstraints = Constraint{MOI.Nonnegatives}[]
         nonposconstraints = Constraint{MOI.Nonpositives}[]
         zeroconstraints = Constraint{MOI.Zeros}[]
-        optimizer_to_backend = MOIU.IndexMap()
-        new{O}(backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, optimizer_to_backend)
+        user_var_to_optimizer = Vector{MOI.VariableIndex}()
+        new{O}(backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
     end
 end
 
@@ -42,7 +40,7 @@ function setobjective!(m::Model, sense::Senses.Sense, f)
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense)) # TODO: consider putting in a DataPair as well
     m.objective.native = convert(QuadraticFunction, f)
     m.objective.moi = MOI.ScalarQuadraticFunction(m.objective.native)
-    update!(m.objective)
+    # update!(m.objective)
     MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
     nothing
 end
@@ -54,8 +52,9 @@ Base.push!(m::Model, c::Constraint{MOI.Zeros}) = push!(m.zeroconstraints, c)
 function addconstraint!(m::Model, f, set::MOI.AbstractVectorSet)
     m.initialized && error()
     f_affine = convert(AffineFunction, f)
-    index = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f_affine), set)
-    push!(m, Constraint(index, f_affine, set))
+    constraint = Constraint(f_affine, set)
+    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f_affine), set)
+    push!(m, constraint)
     nothing
 end
 
@@ -63,34 +62,45 @@ add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives
 add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(outputdim(f)))
 add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(outputdim(f)))
 
+function mapindices(m::Model, idxmap)
+    for c in m.nonnegconstraints
+        c.optimizerindex = idxmap[c.modelindex]
+    end
+    for c in m.nonposconstraints
+        c.optimizerindex = idxmap[c.modelindex]
+    end
+    for c in m.zeroconstraints
+        c.optimizerindex = idxmap[c.modelindex]
+    end
+    backend_var_indices = MOI.get(m.backend, MOI.ListOfVariableIndices())
+    resize!(m.user_var_to_optimizer, length(backend_var_indices))
+    for index in backend_var_indices
+        m.user_var_to_optimizer[index.value] = idxmap[index]
+    end
+end
+
 @noinline function initialize!(m::Model)
-    # Copy
     result = MOI.copy!(m.optimizer, m.backend)
     if result.status == MOI.CopySuccess
-        m.optimizer_to_backend = result.indexmap
+        mapindices(m, result.indexmap)
     else
         error("Copy failed with status ", result.status, ". Message: ", result.message)
     end
-
-    # Map variables
-    # FIXME
-
     m.initialized = true
     nothing
 end
 
 function updateobjective!(m::Model)
-    update!(m.objective)
+    update!(m.objective, m.user_var_to_optimizer)
     MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
 end
 
 function updateconstraint!(m::Model, constraint::Constraint)
-    update!(constraint.fun)
-    MOI.modifyconstraint!(m.optimizer, constraint.index, constraint.fun.moi)
+    update!(constraint.fun, m.user_var_to_optimizer)
+    MOI.modifyconstraint!(m.optimizer, constraint.optimizerindex, constraint.fun.moi)
 end
 
 function update!(m::Model)
-    # FIXME: map variables
     updateobjective!(m)
     for c in m.nonnegconstraints
         updateconstraint!(m, c)
@@ -115,8 +125,7 @@ function solve!(m::Model)
 end
 
 function value(m::Model, x::Variable)
-    # FIXME: map variables
-    MOI.get(m.optimizer, MOI.VariablePrimal(), MOI.VariableIndex(x))
+    MOI.get(m.optimizer, MOI.VariablePrimal(), m.user_var_to_optimizer[x.index])
 end
 
 function objectivevalue(m::Model)

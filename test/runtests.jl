@@ -124,4 +124,48 @@ end
     end
 end
 
+@testset "Model: box constrained" begin
+    # Minimize || x - p ||^2 = x' I x - 2 * p' * x + p ' * p
+    # subject to l <= x <= p
+    # where p is outside {x : l <= x <= p}
+
+    n = 10
+
+    l = [[0.0] for _ = 1 : n]
+    u = [[0.0] for _ = 1 : n]
+
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = [Variable(model) for _ = 1 : n]
+
+    P = Symmetric(speye(n))
+    qt = zeros(1, n)
+    r = [0.0]
+
+    objective = QuadraticTerm(P, x) + LinearTerm(qt, x) #+ r
+    setobjective!(model, Senses.Min, objective)
+    for i = 1 : n
+        @constraint(model, LinearTerm(fill(1.0, 1, 1), [x[i]]) >= Constant(l[i]))
+        @constraint(model, LinearTerm(fill(1.0, 1, 1), [x[i]]) <= Constant(u[i]))
+    end
+
+    rng = MersenneTwister(1234)
+    for testnum = 1 : 100
+        for i = 1 : n
+            l[i] .= -rand(rng)
+            u[i] .= rand(rng)
+        end
+        lvec = [l[i][1] for i = 1 : n]
+        uvec = [u[i][1] for i = 1 : n]
+
+        for vertex in [lvec, uvec]
+            p = 2 .* vertex
+            qt .= -2 .* p'
+            allocs = @allocated solve!(model)
+            @test value.(model, x) ≈ vertex rtol = 1e-4
+            testnum > 1 && @test allocs == 0
+        end
+    end
+end
+
 end # module

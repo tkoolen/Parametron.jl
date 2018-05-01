@@ -29,7 +29,11 @@ function MOI.OptimizationSense(sense::Sense)
 end
 end # module
 
-function Compat.copyto!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction)
+struct IdentityVarMap
+end
+Base.getindex(::IdentityVarMap, i) = MOI.VariableIndex(i)
+
+function update!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction, varmap = IdentityVarMap())
     affine = f.affine
     constant = 0.0
     @inbounds for scaled in affine.constant.terms
@@ -45,7 +49,7 @@ function Compat.copyto!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction
         A = linearterm.A
         x = linearterm.x
         for col in 1 : size(A, 2)
-            push!(moi_f.affine_variables, MOI.VariableIndex(x[col].index))
+            push!(moi_f.affine_variables, varmap[x[col].index])
             push!(moi_f.affine_coefficients, A[col])
         end
     end
@@ -64,8 +68,8 @@ function Compat.copyto!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction
         @inbounds for col = 1 : Qdata.n, k = Qdata.colptr[col] : (Qdata.colptr[col + 1] - 1) # from sparse findn
             row = Qdata.rowval[k]
             if row <= col # upper triangle
-                push!(moi_f.quadratic_rowvariables, MOI.VariableIndex(x[row]))
-                push!(moi_f.quadratic_colvariables, MOI.VariableIndex(x[col]))
+                push!(moi_f.quadratic_rowvariables, varmap[x[row].index])
+                push!(moi_f.quadratic_colvariables, varmap[x[col].index])
                 push!(moi_f.quadratic_coefficients, 2 * s * Qdata.nzval[k])
             end
         end
@@ -81,11 +85,11 @@ function MOI.ScalarQuadraticFunction(f::QuadraticFunction)
         constant += scaled.scalar * scaled.val.v[1]
     end
     ret = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], constant)
-    copyto!(ret, f)
+    update!(ret, f)
     ret
 end
 
-function Compat.copyto!(moi_f::MOI.VectorAffineFunction, f::AffineFunction)
+function update!(moi_f::MOI.VectorAffineFunction, f::AffineFunction, varmap = IdentityVarMap())
     empty!(moi_f.outputindex)
     empty!(moi_f.variables)
     empty!(moi_f.coefficients)
@@ -100,7 +104,7 @@ function Compat.copyto!(moi_f::MOI.VectorAffineFunction, f::AffineFunction)
             row = index[1]
             col = index[2]
             push!(moi_f.outputindex, row)
-            push!(moi_f.variables, MOI.VariableIndex(x[col].index))
+            push!(moi_f.variables, varmap[x[col].index])
             push!(moi_f.coefficients, A[i])
         end
     end
@@ -117,7 +121,7 @@ end
 function MOI.VectorAffineFunction(f::AffineFunction)
     VI = MOI.VariableIndex
     ret = MOI.VectorAffineFunction(Int[], VI[], Float64[], Float64[])
-    copyto!(ret, f)
+    update!(ret, f)
     ret
 end
 
@@ -126,7 +130,7 @@ mutable struct DataPair{A, B}
     moi::B
 end
 
-function update!(pair::DataPair)
+function update!(pair::DataPair, varmap::Vector{MOI.VariableIndex})
     # TODO: hash?
-    copyto!(pair.moi, pair.native)
+    update!(pair.moi, pair.native, varmap)
 end

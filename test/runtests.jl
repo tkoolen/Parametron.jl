@@ -40,7 +40,7 @@ end
     Q = Symmetric(speye(n))
     r = zeros(1, n)
     s = [1.0]
-    objective = QuadraticTerm(Q, x) + LinearTerm(r, x) + s
+    objective = QuadraticTerm(Q, x) + LinearTerm(r, x) + Constant(s)
 
     setobjective!(model, Senses.Min, objective)
     SimpleQP.initialize!(model)

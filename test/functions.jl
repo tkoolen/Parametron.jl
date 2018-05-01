@@ -86,7 +86,7 @@ end
     f3 = 0.5 * quad(A1, x) + 2 * quad(A2, y)
     @test f3(vals) ≈ 0.5 * dot(xval, A1 * xval) + 2 * dot(yval, A2 * yval) atol = 1e-15
 
-    f4 = f3 + [3.0]
+    f4 = f3 + Constant([3.0])
     @test f4(vals) ≈ f3(vals) + 3.0 atol = 1e-15
 
     @test_throws DimensionMismatch quad(A2, x)

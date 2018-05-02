@@ -23,6 +23,7 @@ abstract type Fun end
 struct Variable
     index::Int
 end
+Base.hash(x::Variable, h::UInt) = hash(x.index, h)
 
 
 # Constant

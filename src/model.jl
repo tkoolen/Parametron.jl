@@ -1,9 +1,9 @@
-mutable struct Constraint{S<:MOI.AbstractSet}
+mutable struct AffineConstraint{S<:MOI.AbstractSet}
     fun::DataPair{AffineFunction, MOI.VectorAffineFunction{Float64}}
     set::S
     modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
     optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
-    Constraint(f::AffineFunction, set::S) where {S<:MOI.AbstractSet} = new{S}(DataPair(f, MOI.VectorAffineFunction(f)), set)
+    AffineConstraint(f::AffineFunction, set::S) where {S<:MOI.AbstractSet} = new{S}(DataPair(f, MOI.VectorAffineFunction(f)), set)
 end
 
 mutable struct Model{O<:MOI.AbstractOptimizer}
@@ -11,9 +11,9 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
     optimizer::O
     initialized::Bool
     objective::DataPair{QuadraticFunction, MOI.ScalarQuadraticFunction{Float64}}
-    nonnegconstraints::Vector{Constraint{MOI.Nonnegatives}}
-    nonposconstraints::Vector{Constraint{MOI.Nonpositives}}
-    zeroconstraints::Vector{Constraint{MOI.Zeros}}
+    nonnegconstraints::Vector{AffineConstraint{MOI.Nonnegatives}}
+    nonposconstraints::Vector{AffineConstraint{MOI.Nonpositives}}
+    zeroconstraints::Vector{AffineConstraint{MOI.Zeros}}
     user_var_to_optimizer::Vector{MOI.VariableIndex}
 
     function Model(optimizer::O) where O
@@ -21,9 +21,9 @@ mutable struct Model{O<:MOI.AbstractOptimizer}
         backend = SimpleQPMOIModel{Float64}()
         initialized = false
         objective = DataPair(QuadraticFunction(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
-        nonnegconstraints = Constraint{MOI.Nonnegatives}[]
-        nonposconstraints = Constraint{MOI.Nonpositives}[]
-        zeroconstraints = Constraint{MOI.Zeros}[]
+        nonnegconstraints = AffineConstraint{MOI.Nonnegatives}[]
+        nonposconstraints = AffineConstraint{MOI.Nonpositives}[]
+        zeroconstraints = AffineConstraint{MOI.Zeros}[]
         user_var_to_optimizer = Vector{MOI.VariableIndex}()
         new{O}(backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
     end
@@ -45,14 +45,14 @@ function setobjective!(m::Model, sense::Senses.Sense, f)
     nothing
 end
 
-Base.push!(m::Model, c::Constraint{MOI.Nonnegatives}) = push!(m.nonnegconstraints, c)
-Base.push!(m::Model, c::Constraint{MOI.Nonpositives}) = push!(m.nonposconstraints, c)
-Base.push!(m::Model, c::Constraint{MOI.Zeros}) = push!(m.zeroconstraints, c)
+Base.push!(m::Model, c::AffineConstraint{MOI.Nonnegatives}) = push!(m.nonnegconstraints, c)
+Base.push!(m::Model, c::AffineConstraint{MOI.Nonpositives}) = push!(m.nonposconstraints, c)
+Base.push!(m::Model, c::AffineConstraint{MOI.Zeros}) = push!(m.zeroconstraints, c)
 
 function addconstraint!(m::Model, f, set::MOI.AbstractVectorSet)
     m.initialized && error()
     f_affine = convert(AffineFunction, f)
-    constraint = Constraint(f_affine, set)
+    constraint = AffineConstraint(f_affine, set)
     constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f_affine), set)
     push!(m, constraint)
     nothing
@@ -95,7 +95,7 @@ function updateobjective!(m::Model)
     MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
 end
 
-function updateconstraint!(m::Model, constraint::Constraint)
+function updateconstraint!(m::Model, constraint::AffineConstraint)
     update!(constraint.fun, m.user_var_to_optimizer)
     MOI.modifyconstraint!(m.optimizer, constraint.optimizerindex, constraint.fun.moi)
 end

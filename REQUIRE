@@ -1,3 +1,4 @@
 julia 0.6
 MathOptInterface 0.1
 MacroTools
+FunctionWrappers

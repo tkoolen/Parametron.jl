@@ -2,208 +2,301 @@ module Functions
 
 export
     Variable,
-    Constant,
-    LinearTerm,
-    QuadraticTerm,
-    Scaled,
-    Sum,
+    # ScalarLinearTerm,
+    # ScalarQuadraticTerm,
+    # VectorLinearTerm,
+    Parameter,
+    VectorLinearFunction,
+    QuadraticForm,
     AffineFunction,
     QuadraticFunction
 
 export
-    outputdim
+    wrap
+    # outputdim
 
-import ..SimpleQP: quad
+using Compat
+import FunctionWrappers: FunctionWrapper
 
-const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
-
-abstract type Fun end
 
 # Variable
 struct Variable
     index::Int
 end
+Base.transpose(v::Variable) = v
 
 
-# Constant
-struct Constant <: Fun
-    v::Vector{Float64}
+# ScalarLinearTerm
+struct ScalarLinearTerm{T}
+    coeff::T
+    var::Variable
 end
-outputdim(f::Constant) = length(f.v)
-@inline isquadratic(::Type{Constant}) = false
-(f::Constant)() = f.v
+getcoeff(term::ScalarLinearTerm) = term.coeff
+setcoeff(term::ScalarLinearTerm, coeff) = ScalarLinearTerm(coeff, term.var)
 
+# ScalarQuadraticTerm
+struct ScalarQuadraticTerm{T}
+    coeff::T
+    rowvar::Variable
+    colvar::Variable
+end
+getcoeff(term::ScalarQuadraticTerm) = term.coeff
+setcoeff(term::ScalarQuadraticTerm, coeff) = ScalarQuadraticTerm(coeff, term.rowvar, term.colvar)
 
-# LinearTerm
-struct LinearTerm <: Fun
-    A::Matrix{Float64}
-    x::Vector{Variable}
+# VectorLinearTerm
+struct VectorLinearTerm{T}
+    output_index::Int
+    scalar_term::ScalarLinearTerm{T}
+end
+getcoeff(term::VectorLinearTerm) = getcoeff(term.scalar_term)
+setcoeff(term::VectorLinearTerm, coeff) = VectorLinearTerm(term.output_index, setcoeff(term.scalar_term, coeff))
 
-    function LinearTerm(A::Matrix{Float64}, x::Vector{Variable})
-        size(A, 2) === length(x) || error()
-        new(A, x)
+for Term in [:ScalarLinearTerm, :ScalarQuadraticTerm, :VectorLinearTerm]
+    @eval begin
+        Base.convert(::Type{$Term{T}}, term::$Term{T}) where {T} = term
+        Base.convert(::Type{$Term{T}}, term::$Term) where {T} = setcoeff(term, convert(T, getcoeff(term)))
+        Base.:-(term::$Term) = setcoeff(term, -getcoeff(term))
+        Base.:*(c::Real, term::$Term) = setcoeff(term, c * getcoeff(term))
+        Base.:*(term::$Term, c::Real) = c * term
     end
 end
-outputdim(f::LinearTerm) = size(f.A, 1)
-@inline isquadratic(::Type{LinearTerm}) = false
-(f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
 
-# QuadraticTerm
-struct QuadraticTerm <: Fun
-    Q::SparseSymmetric64
-    x::Vector{Variable}
 
-    function QuadraticTerm(Q::SparseSymmetric64, x::Vector{Variable})
-        n = length(x)
-        size(Q) == (n, n) || throw(DimensionMismatch())
-        new(Q, x)
+# Parameter
+struct Parameter{T, F}
+    f::F
+end
+
+Parameter{T}(f::F) where {T, F} = Parameter{T, F}(f)
+Parameter(val::T) where {T} = (f = () -> val; Parameter{T, typeof(f)}(f))
+(p::Parameter{T})() where {T} = p.f()::T
+wrap(p::Parameter{T}) where {T} = Parameter{T}(FunctionWrapper{T, Tuple{}}(p.f))
+
+Base.:+(p::Parameter) = p
+
+function Base.:-(p::Parameter{T}) where T <: Real
+    f = let inner = p.f
+        () -> -inner()
     end
+    Parameter{T}(f)
 end
-quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
-QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
-outputdim(f::QuadraticTerm) = 1
-@inline isquadratic(::Type{QuadraticTerm}) = true
-(f::QuadraticTerm)(vals::Associative{Variable, Float64}) = quad(f.Q, getindex.(vals, f.x))
 
-
-# Scaled
-struct Scaled{T<:Fun} <: Fun
-    scalar::Float64
-    val::T
-    Scaled{T}(scalar::Float64, val::T) where {T<:Fun} = new{T}(scalar, val)
-end
-Scaled(scalar::Float64, val::T) where {T<:Fun} = Scaled{T}(scalar, val)
-outputdim(f::Scaled) = outputdim(f.val)
-@inline isquadratic(::Type{Scaled{T}}) where {T<:Fun} = isquadratic(T)
-(f::Scaled)(x...) = f.scalar * f.val(x...)
-
-
-# Sum
-struct Sum{T<:Fun} <: Fun
-    terms::Vector{T}
-
-    function Sum{T}(terms::Vector{T}) where {T}
-        isempty(terms) && throw(ArgumentError())
-        m = outputdim(terms[1])
-        for i = 2 : length(terms)
-            outputdim(terms[i]) == m || throw(DimensionError())
+function Base.:-(p::Parameter{T}) where T <: Vector
+    ret = T()
+    f = let inner = p.f, ret = ret
+        function ()
+            vec = inner()
+            resize!(ret, length(vec))
+            @inbounds map!(-, ret, vec)
+            ret
         end
-        new{T}(terms)
+    end
+    Parameter{T}(f)
+end
+# TODO: handle matrix case?
+
+for op in [:+, :-, :*]
+    @eval begin
+        function Base.$op(p1::Parameter{T1}, p2::Parameter{T2}) where {T1 <: Real, T2 <: Real}
+            T = promote_type(T1, T2)
+            f = let f1 = p1.f, f2 = p2.f
+                () -> $op(f1(), f2())
+            end
+            Parameter{T}(f)
+        end
     end
 end
-Sum(terms::Vector{T}) where {T<:Fun} = Sum{T}(terms)
-outputdim(f::Sum) = isempty(f.terms) ? 0 : outputdim(f.terms[1])
-@inline isquadratic(::Type{Sum{T}}) where {T<:Fun} = isquadratic(T)
-(f::Sum)(x...) = sum(term -> term(x...), f.terms)
+
+function Base.:*(pscalar::Parameter{T1}, pvector::Parameter{Vector{T2}}) where {T1 <: Real, T2 <: Real}
+    T = promote_type(T1, T2)
+    ret = Vector{T}()
+    f = let fscalar = pscalar.f, fvector = pvector.f, ret = ret
+        function ()
+            scalar = fscalar()
+            vector = fvector()
+            resize!(ret, length(vector))
+            @inbounds map!(x -> scalar * x, ret, vector)
+            ret
+        end
+    end
+    Parameter{Vector{T}}(f)
+end
+Base.:*(pvector::Parameter{Vector{T2}}, pscalar::Parameter{T1}) where {T1 <: Real, T2 <: Real} = pscalar * pvector
+
+
+# VectorLinearFunction, QuadraticForm
+struct VectorLinearFunction{T, F}
+    terms::F
+end
+
+struct QuadraticForm{T, F}
+    terms::F
+end
+
+for (Fun, Term) in [(:VectorLinearFunction, :VectorLinearTerm), (:QuadraticForm, :ScalarQuadraticTerm)]
+    @eval begin
+        $Fun{T}(terms::F) where {T, F} = $Fun{T, F}(terms)
+        wrap(l::$Fun{T}) where {T} = $Fun{T}(FunctionWrapper{Vector{$Term{T}}, Tuple{}}(l.terms))
+
+        Base.:+(l::$Fun) = l
+
+        function Base.:-(l::$Fun{T}) where T
+            ret = Vector{$Term{T}}()
+            terms = let inner = l.terms, ret = ret
+                function ()
+                    innerterms = inner()
+                    resize!(ret, length(innerterms))
+                    @inbounds map!(-, ret, innerterms)
+                    ret
+                end
+            end
+            $Fun{T}(terms)
+        end
+
+        function Base.:+(l1::$Fun{T1}, l2::$Fun{T2}) where {T1, T2}
+            T = promote_type(T1, T2)
+            ret = Vector{$Term{T}}()
+            terms = let l1 = l1, l2 = l2, ret = ret
+                function ()
+                    empty!(ret)
+                    append!(ret, l1.terms())
+                    append!(ret, l2.terms())
+                    ret
+                end
+            end
+            $Fun{T}(terms)
+        end
+
+        function Base.:-(l1::$Fun{T1}, l2::$Fun{T2}) where {T1, T2}
+            T = promote_type(T1, T2)
+            ret = Vector{$Term{T}}()
+            terms = let l1 = l1, l2 = l2, ret = ret
+                function ()
+                    empty!(ret)
+                    append!(ret, l1.terms())
+                    i = length(ret) + 1
+                    l2terms = l2.terms()
+                    n = length(ret) + length(l2terms)
+                    resize!(ret, n)
+                    @inbounds for term in l2.terms()
+                        ret[i] = term
+                        i += 1
+                    end
+                    ret
+                end
+            end
+            $Fun{T}(terms)
+        end
+
+        function Base.:*(c::Parameter{T1}, l::$Fun{T2}) where {T1 <: Real, T2}
+            T = promote_type(T1, T2)
+            ret = Vector{$Term{T}}()
+            terms = let c = c, l = l, ret = ret
+                function ()
+                    cval = c()
+                    empty!(ret)
+                    for term in l.terms()
+                        push!(ret, cval * term)
+                    end
+                    ret
+                end
+            end
+            $Fun{T}(terms)
+        end
+
+        Base.:*(l::$Fun, c::Parameter{<:Real}) = c * l
+    end
+end
+
+# VectorLinearFunction-specific
+function Base.:*(A::Parameter{Matrix{T}}, x::Vector{Variable}) where T
+    ret = Vector{VectorLinearTerm{T}}()
+    terms = let A = A, x = x, ret = ret
+        function ()
+            Aval = A()
+            @boundscheck size(Aval, 2) == length(x) || throw(DimensionMismatch())
+            n = length(Aval)
+            resize!(ret, n)
+            i = 1
+            @inbounds for col = 1 : size(Aval, 2)
+                for row = 1 : size(Aval, 1)
+                    ret[i] = VectorLinearTerm(row, ScalarLinearTerm(Aval[i], x[col]))
+                    i += 1
+                end
+            end
+            ret
+        end
+    end
+    VectorLinearFunction{T}(terms)
+end
+
+function Base.:*(c::Parameter{T}, x::Vector{Variable}) where T <: Real
+    ret = Vector{VectorLinearTerm{T}}()
+    terms = let c = c, x = x, ret = ret
+        function ()
+            cval = c()
+            resize!(ret, length(x))
+            @inbounds for i in eachindex(x)
+                ret[i] = VectorLinearTerm(i, ScalarLinearTerm(cval, x[i]))
+            end
+            ret
+        end
+    end
+    VectorLinearFunction{T}(terms)
+end
+Base.:*(x::Vector{Variable}, c::Parameter{<:Real}) = c * x
+
+# QuadraticForm-specific
+function Base.dot(x::Vector{Variable}, l::VectorLinearFunction{T}) where T
+    ret = Vector{ScalarQuadraticTerm{T}}()
+    terms = let x = x, ltermsfun = l.terms, ret = ret
+        function ()
+            linearterms = ltermsfun()
+            resize!(ret, length(linearterms))
+            for i in eachindex(linearterms)
+                @inbounds linearterm = linearterms[i]
+                quadraticterm = ScalarQuadraticTerm(linearterm.scalar_term.coeff, x[linearterm.output_index], linearterm.scalar_term.var)
+                @inbounds ret[i] = quadraticterm
+            end
+            ret
+        end
+    end
+    QuadraticForm{T}(terms)
+end
 
 
 # AffineFunction
-struct AffineFunction <: Fun
-    linear::Sum{Scaled{LinearTerm}}
-    constant::Sum{Scaled{Constant}}
+struct AffineFunction{L <: VectorLinearFunction, C <: Parameter{<:Vector{<:Real}}}
+    linear::L
+    constant::C
+end
 
-    function AffineFunction(linear::Sum{Scaled{LinearTerm}}, constant::Sum{Scaled{Constant}})
-        outputdim(linear) === outputdim(constant) || throw(ArgumentError())
-        new(linear, constant)
+wrap(a::AffineFunction) = AffineFunction(wrap(a.linear), wrap(a.constant))
+
+for op in [:+, :-]
+    @eval begin
+        Base.$op(l::VectorLinearFunction, c::Parameter{<:Vector{<:Real}}) = AffineFunction(l, $op(c))
+        Base.$op(c::Parameter{<:Vector{<:Real}}, l::VectorLinearFunction) = AffineFunction($op(l), c)
+        Base.$op(a::AffineFunction, c::Parameter{<:Vector{<:Real}}) = AffineFunction(a.linear, $op(a.constant, c))
+        Base.$op(c::Parameter{<:Vector{<:Real}}, a::AffineFunction) = AffineFunction(a.linear, $op(c, a.constant))
+        Base.$op(a::AffineFunction, l::VectorLinearFunction) = AffineFunction($op(a.linear, l), a.constant)
+        Base.$op(l::VectorLinearFunction, a::AffineFunction) = AffineFunction($op(l, a.linear), a.constant)
     end
 end
-outputdim(f::AffineFunction) = outputdim(f.constant)
-@inline isquadratic(::Type{AffineFunction}) = false
-(f::AffineFunction)(vals::Associative{Variable, Float64}) = f.linear(vals) .+ f.constant()
 
 
 # QuadraticFunction
-struct QuadraticFunction <: Fun
-    quadratic::Sum{Scaled{QuadraticTerm}}
-    affine::AffineFunction
-
-    function QuadraticFunction(quadratic::Sum{Scaled{QuadraticTerm}}, affine::AffineFunction)
-        outputdim(quadratic) === outputdim(affine) || throw(ArgumentError())
-        new(quadratic, affine)
-    end
-end
-QuadraticFunction() = convert(QuadraticFunction, Constant([0.0]))
-outputdim(f::QuadraticFunction) = 1
-@inline isquadratic(::Type{QuadraticFunction}) = true
-(f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)[1]
-
-
-# Promotion
-Base.promote_rule(::Type{T}, ::Type{T}) where {T<:Fun} = T
-Base.promote_rule(::Type{T}, ::Type{Scaled{T}}) where {T<:Fun} = Scaled{T}
-Base.promote_rule(::Type{T}, ::Type{Sum{T}}) where {T<:Fun} = Sum{T}
-Base.promote_rule(::Type{T}, ::Type{S}) where {T<:Fun, S<:Fun} = isquadratic(T) || isquadratic(S) ? QuadraticFunction : AffineFunction
-
-
-# Conversion
-Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
-Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
-Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
-Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
-Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
-Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
-Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
-Base.convert(::Type{AffineFunction}, x::Scaled{LinearTerm}) = convert(AffineFunction, convert(Sum{Scaled{LinearTerm}}, x))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) =
-    AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) =
-    AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
-Base.convert(::Type{QuadraticFunction}, x::QuadraticFunction) = x
-Base.convert(::Type{QuadraticFunction}, x::QuadraticTerm) = convert(QuadraticFunction, convert(Scaled{QuadraticTerm}, x))
-Base.convert(::Type{QuadraticFunction}, x::Scaled{QuadraticTerm}) =
-    convert(QuadraticFunction, convert(Sum{Scaled{QuadraticTerm}}, x))
-Base.convert(::Type{QuadraticFunction}, x::Sum{Scaled{QuadraticTerm}}) =
-    QuadraticFunction(x, convert(AffineFunction, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{QuadraticFunction}, x::Fun) =
-    QuadraticFunction(convert(Sum{Scaled{QuadraticTerm}}, QuadraticTerm()), convert(AffineFunction, x))
-
-
-# Operations
-Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), simplify(f)))
-Base.:*(f::Fun, x::Real) = x * f
-Base.:-(f::Fun) = -1.0 * f
-Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
-Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[simplify(f1), simplify(f2)]))
-Base.:-(f1::Fun, f2::Fun) = f1 + -f2
-
-
-# Simplification
-simplify(f::Fun) = f
-simplify(f::Scaled{<:Scaled}) = simplify(Scaled(f.scalar * f.val.scalar, f.val.val))
-simplify(f::Scaled{<:Sum}) = simplify(Sum([simplify(Scaled(f.scalar, term)) for term in f.val.terms]))
-
-function simplify(f::Scaled{AffineFunction})
-    linear = simplify(Scaled(f.scalar, f.val.linear))
-    constant = simplify(Scaled(f.scalar, f.val.constant))
-    AffineFunction(linear, constant)
+struct QuadraticFunction{Q <: QuadraticForm, A <: AffineFunction}
+    quadratic::Q
+    affine::A
 end
 
-function simplify(f::Scaled{QuadraticFunction})
-    quadratic = simplify(Scaled(f.scalar, f.val.quadratic))
-    affine = simplify(Scaled(f.scalar, f.val.affine))
-    QuadraticFunction(quadratic, affine)
-end
+wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
 
-function simplify(f::Sum{Sum{T}}) where {T}
-    terms = Vector{T}()
-    for sum in f.terms
-        for term in sum.terms
-            push!(terms, term)
-        end
-    end
-    simplify(Sum(terms))
-end
-
-function simplify(f::Sum{AffineFunction})
-    linear = simplify(Sum([term.linear for term in f.terms]))
-    constant = simplify(Sum([term.constant for term in f.terms]))
-    AffineFunction(linear, constant)
-end
-
-function simplify(f::Sum{QuadraticFunction})
-    quadratic = simplify(Sum([term.quadratic for term in f.terms]))
-    affine = simplify(Sum([term.affine for term in f.terms]))
-    QuadraticFunction(quadratic, affine)
-end
+# for op in [:+, :-]
+#     @eval begin
+#         Base.$op(qform::QuadraticForm, c::Parameter)
+#     end
+# end
 
 end

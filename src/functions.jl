@@ -63,14 +63,16 @@ end
 
 
 # Parameter
-struct Parameter{T, F}
+struct Parameter{T, N, F}
+    size::NTuple{N, Int}
     f::F
 end
 
-Parameter{T}(f::F) where {T, F} = Parameter{T, F}(f)
-Parameter(val::T) where {T} = (f = () -> val; Parameter{T, typeof(f)}(f))
+Parameter{T}(s::NTuple{N, Int}, f::F) where {T, N, F} = Parameter{T, N, F}(s, f)
+Parameter(val::T) where {T} = (f = () -> val; Parameter{T}(size(val), f))
 (p::Parameter{T})() where {T} = p.f()::T
-wrap(p::Parameter{T}) where {T} = Parameter{T}(FunctionWrapper{T, Tuple{}}(p.f))
+wrap(p::Parameter{T}) where {T} = Parameter{T}(p.size, FunctionWrapper{T, Tuple{}}(p.f))
+Base.size(p::Parameter) = p.size
 
 Base.:+(p::Parameter) = p
 
@@ -78,7 +80,7 @@ function Base.:-(p::Parameter{T}) where T <: Real
     f = let inner = p.f
         () -> -inner()
     end
-    Parameter{T}(f)
+    Parameter{T}(size(p), f)
 end
 
 function Base.:-(p::Parameter{T}) where T <: Vector
@@ -91,7 +93,7 @@ function Base.:-(p::Parameter{T}) where T <: Vector
             ret
         end
     end
-    Parameter{T}(f)
+    Parameter{T}(size(p), f)
 end
 # TODO: handle matrix case?
 
@@ -102,7 +104,7 @@ for op in [:+, :-, :*]
             f = let f1 = p1.f, f2 = p2.f
                 () -> $op(f1(), f2())
             end
-            Parameter{T}(f)
+            Parameter{T}((), f)
         end
     end
 end
@@ -119,7 +121,7 @@ function Base.:*(pscalar::Parameter{T1}, pvector::Parameter{Vector{T2}}) where {
             ret
         end
     end
-    Parameter{Vector{T}}(f)
+    Parameter{Vector{T}}(size(pvector), f)
 end
 Base.:*(pvector::Parameter{Vector{T2}}, pscalar::Parameter{T1}) where {T1 <: Real, T2 <: Real} = pscalar * pvector
 
@@ -127,65 +129,105 @@ Base.:*(pvector::Parameter{Vector{T2}}, pscalar::Parameter{T1}) where {T1 <: Rea
 # ScalarLinearFunction, VectorLinearFunction, QuadraticForm
 for (Fun, Term) in [
         (:ScalarLinearFunction, :ScalarLinearTerm),
-        (:VectorLinearFunction, :VectorLinearTerm),
         (:QuadraticForm, :ScalarQuadraticTerm)]
 
     @eval begin
         struct $Fun{T, F}
             terms::F
         end
-
         $Fun{T}(terms::F) where {T, F} = $Fun{T, F}(terms)
-        wrap(l::$Fun{T}) where {T} = $Fun{T}(FunctionWrapper{Vector{$Term{T}}, Tuple{}}(l.terms))
+        Base.size(::$Fun) = ()
+        Base.similar(::$Fun, ::Type{T}, terms::F) where {T, F} = $Fun{T, F}(terms)
+        Base.similar(::$Fun{T}, terms::F) where {T, F} = $Fun{T, F}(terms)
+        function Base.zero(::Type{$Fun{T}}) where T
+            ret = Vector{$Term{T}}()
+            terms = let ret = ret
+                () -> ret
+            end
+            $Fun{T}(terms)
+        end
+    end
+end
+
+struct VectorLinearFunction{T, F}
+    length::Int
+    terms::F
+end
+VectorLinearFunction{T}(l::Int, terms::F) where {T, F} = VectorLinearFunction{T, F}(l, terms)
+Base.length(fun::VectorLinearFunction) = fun.length
+Base.size(fun::VectorLinearFunction) = (fun.length,)
+Base.similar(fun::VectorLinearFunction, ::Type{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
+Base.similar(fun::VectorLinearFunction{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
+
+for (Fun, Term) in [
+        (:ScalarLinearFunction, :ScalarLinearTerm),
+        (:VectorLinearFunction, :VectorLinearTerm),
+        (:QuadraticForm, :ScalarQuadraticTerm)]
+
+    @eval begin
+        wrap(l::$Fun{T}) where {T} = similar(l, FunctionWrapper{Vector{$Term{T}}, Tuple{}}(l.terms))
 
         Base.:+(l::$Fun) = l
 
         function Base.:-(l::$Fun{T}) where T
             ret = Vector{$Term{T}}()
-            terms = let inner = l.terms, ret = ret
+            terms = let ltermsfun = l.terms, ret = ret
                 function ()
-                    innerterms = inner()
-                    resize!(ret, length(innerterms))
-                    @inbounds map!(-, ret, innerterms)
+                    lterms = ltermsfun()
+                    resize!(ret, length(lterms))
+                    @inbounds map!(-, ret, lterms)
                     ret
                 end
             end
-            $Fun{T}(terms)
+            similar(l, terms)
         end
 
         function Base.:+(l1::$Fun{T1}, l2::$Fun{T2}) where {T1, T2}
+            @boundscheck size(l1) == size(l2) || throw(DimensionMismatch())
             T = promote_type(T1, T2)
             ret = Vector{$Term{T}}()
-            terms = let l1 = l1, l2 = l2, ret = ret
+            terms = let l1termsfun = l1.terms, l2termsfun = l2.terms, ret = ret
                 function ()
-                    empty!(ret)
-                    append!(ret, l1.terms())
-                    append!(ret, l2.terms())
-                    ret
-                end
-            end
-            $Fun{T}(terms)
-        end
-
-        function Base.:-(l1::$Fun{T1}, l2::$Fun{T2}) where {T1, T2}
-            T = promote_type(T1, T2)
-            ret = Vector{$Term{T}}()
-            terms = let l1 = l1, l2 = l2, ret = ret
-                function ()
-                    empty!(ret)
-                    append!(ret, l1.terms())
-                    i = length(ret) + 1
-                    l2terms = l2.terms()
-                    n = length(ret) + length(l2terms)
-                    resize!(ret, n)
-                    @inbounds for term in l2.terms()
+                    l1terms = l1termsfun()
+                    l2terms = l2termsfun()
+                    resize!(ret, length(l1terms) + length(l2terms))
+                    i = 1
+                    @inbounds for term in l1terms
                         ret[i] = term
                         i += 1
+                    end
+                    @inbounds for term in l2terms
+                        ret[i] = term
+                        i+= 1
                     end
                     ret
                 end
             end
-            $Fun{T}(terms)
+            similar(l1, T, terms)
+        end
+
+        function Base.:-(l1::$Fun{T1}, l2::$Fun{T2}) where {T1, T2}
+            @boundscheck size(l1) == size(l2) || throw(DimensionMismatch())
+            T = promote_type(T1, T2)
+            ret = Vector{$Term{T}}()
+            terms = let l1termsfun = l1.terms, l2termsfun = l2.terms, ret = ret
+                function ()
+                    l1terms = l1termsfun()
+                    l2terms = l2termsfun()
+                    resize!(ret, length(l1terms) + length(l2terms))
+                    i = 1
+                    @inbounds for term in l1terms
+                        ret[i] = term
+                        i += 1
+                    end
+                    @inbounds for term in l2terms
+                        ret[i] = -term
+                        i+= 1
+                    end
+                    ret
+                end
+            end
+            similar(l1, T, terms)
         end
 
         function Base.:*(c::Parameter{T1}, l::$Fun{T2}) where {T1 <: Real, T2}
@@ -202,7 +244,7 @@ for (Fun, Term) in [
                     ret
                 end
             end
-            $Fun{T}(terms)
+            similar(l, T, terms)
         end
 
         Base.:*(l::$Fun, c::Parameter{<:Real}) = c * l
@@ -211,6 +253,7 @@ end
 
 # VectorLinearFunction-specific
 function Base.:*(A::Parameter{Matrix{T}}, x::Vector{Variable}) where T
+    @boundscheck size(A)[2] == length(x) || throw(DimensionMismatch())
     ret = Vector{VectorLinearTerm{T}}()
     terms = let A = A, x = x, ret = ret
         function ()
@@ -228,7 +271,7 @@ function Base.:*(A::Parameter{Matrix{T}}, x::Vector{Variable}) where T
             ret
         end
     end
-    VectorLinearFunction{T}(terms)
+    VectorLinearFunction{T}(size(A)[1], terms)
 end
 
 function Base.:*(c::Parameter{T}, x::Vector{Variable}) where T <: Real
@@ -243,12 +286,13 @@ function Base.:*(c::Parameter{T}, x::Vector{Variable}) where T <: Real
             ret
         end
     end
-    VectorLinearFunction{T}(terms)
+    VectorLinearFunction{T}(length(x), terms)
 end
 Base.:*(x::Vector{Variable}, c::Parameter{<:Real}) = c * x
 
 # QuadraticForm-specific
 function Base.dot(x::Vector{Variable}, l::VectorLinearFunction{T}) where T
+    @boundscheck length(x) == length(l) || throw(DimensionMismatch())
     ret = Vector{ScalarQuadraticTerm{T}}()
     terms = let x = x, ltermsfun = l.terms, ret = ret
         function ()
@@ -274,9 +318,12 @@ for (AffineFunction, Linear, Constant) in [
         struct $AffineFunction{L <: $Linear, C <: $Constant}
             linear::L
             constant::C
-        end
 
-        $AffineFunction(l::$Linear{S}) where {S} = $AffineFunction(l, zero($Constant{S}))
+            function $AffineFunction(linear::L, constant::C) where {L <: $Linear, C <: $Constant}
+                @boundscheck size(linear) == size(constant) || throw(DimensionMismatch())
+                new{L, C}(linear, constant)
+            end
+        end
 
         wrap(a::$AffineFunction) = $AffineFunction(wrap(a.linear), wrap(a.constant))
     end
@@ -293,6 +340,20 @@ for (AffineFunction, Linear, Constant) in [
     end
 end
 
+# ScalarAffineFunction-specific
+ScalarAffineFunction(linear::ScalarLinearFunction{T}) where {T} = ScalarAffineFunction(linear, Parameter(zero(T)))
+ScalarAffineFunction(constant::Parameter{T}) where T<:Real = ScalarAffineFunction(zero(ScalarLinearFunction{T}), constant)
+
+# VectorAffineFunction-specific
+VectorAffineFunction(linear::VectorLinearFunction{T}) where {T} = VectorAffineFunction(linear, Parameter(zeros(size(linear))))
+function VectorAffineFunction(constant::Parameter{Vector{T}}) where {T}
+    ret = Vector{VectorLinearTerm{T}}()
+    terms = let ret = ret
+        () -> ret
+    end
+    linear = VectorLinearFunction{T}(size(constant)[1], terms)
+    VectorAffineFunction(linear, constant)
+end
 
 # QuadraticFunction
 struct QuadraticFunction{Q <: QuadraticForm, A <: ScalarAffineFunction}

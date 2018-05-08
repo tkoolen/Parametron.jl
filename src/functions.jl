@@ -148,6 +148,24 @@ for (Fun, Term) in [
     end
 end
 
+function (f::ScalarLinearFunction{T1})(vals::Dict{Variable, T2}) where {T1, T2}
+    T = promote_type(T1, T2)
+    ret = zero(T)
+    for term in f.terms()
+        ret += term.coeff * vals[term.var]
+    end
+    ret
+end
+
+function (f::QuadraticForm{T1})(vals::Dict{Variable, T2}) where {T1, T2}
+    T = promote_type(T1, T2)
+    ret = zero(T)
+    for term in f.terms()
+        ret += term.coeff * vals[term.rowvar] * vals[term.colvar]
+    end
+    ret
+end
+
 struct VectorLinearFunction{T, F}
     length::Int
     terms::F
@@ -157,6 +175,15 @@ Base.length(fun::VectorLinearFunction) = fun.length
 Base.size(fun::VectorLinearFunction) = (fun.length,)
 Base.similar(fun::VectorLinearFunction, ::Type{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
 Base.similar(fun::VectorLinearFunction{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
+
+function (f::VectorLinearFunction{T1})(vals::Dict{Variable, T2}) where {T1, T2}
+    T = promote_type(T1, T2)
+    ret = zeros(T, length(f))
+    for term in f.terms()
+        ret[term.row] += term.scalarterm.coeff * vals[term.scalarterm.var]
+    end
+    ret
+end
 
 for (Fun, Term) in [
         (:ScalarLinearFunction, :ScalarLinearTerm),
@@ -325,6 +352,7 @@ for (AffineFunction, Linear, Constant) in [
         end
 
         wrap(a::$AffineFunction) = $AffineFunction(wrap(a.linear), wrap(a.constant))
+        (f::$AffineFunction)(vals::Dict{Variable}) = f.linear(vals) + f.constant()
     end
 
     for op in [:+, :-]
@@ -366,9 +394,10 @@ QuadraticFunction(quadratic::QuadraticForm{T}) where {T} = QuadraticFunction(qua
 QuadraticFunction(affine::ScalarAffineFunction{T}) where {T} = QuadraticFunction(zero(QuadraticForm{T}), affine)
 QuadraticFunction(linear::ScalarLinearFunction) = QuadraticFunction(ScalarAffineFunction(linear))
 QuadraticFunction(constant::Parameter{<:Real}) = QuadraticFunction(ScalarAffineFunction(constant))
-Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(Parameter(zero(T)))
 
+Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(Parameter(zero(T)))
 wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
+(f::QuadraticFunction)(vals::Dict{Variable}) = f.quadratic(vals) + f.affine(vals)
 
 for op in [:+, :-]
     @eval begin

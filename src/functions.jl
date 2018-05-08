@@ -11,7 +11,14 @@ export
     QuadraticForm,
     ScalarAffineFunction,
     VectorAffineFunction,
-    QuadraticFunction
+    QuadraticFunction,
+    WrappedParameter,
+    WrappedScalarLinearFunction,
+    WrappedVectorLinearFunction,
+    WrappedQuadraticForm,
+    WrappedScalarAffineFunction,
+    WrappedVectorAffineFunction,
+    WrappedQuadraticFunction
 
 export
     wrap
@@ -24,6 +31,7 @@ import FunctionWrappers: FunctionWrapper
 struct Variable
     index::Int
 end
+Base.hash(v::Variable, h::UInt) = hash(v.index, h)
 Base.transpose(v::Variable) = v
 
 
@@ -70,8 +78,9 @@ end
 Parameter{T}(s::NTuple{N, Int}, f::F) where {T, N, F} = Parameter{T, N, F}(s, f)
 Parameter(val::T) where {T} = (f = () -> val; Parameter{T}(size(val), f))
 (p::Parameter{T})() where {T} = p.f()::T
-wrap(p::Parameter{T}) where {T} = Parameter{T}(p.size, FunctionWrapper{T, Tuple{}}(p.f))
 Base.size(p::Parameter) = p.size
+wrap(p::Parameter{T}) where {T} = Parameter{T}(p.size, FunctionWrapper{T, Tuple{}}(p.f))
+const WrappedParameter{T, N} = Parameter{T, N, FunctionWrapper{T, Tuple{}}}
 
 Base.:+(p::Parameter) = p
 
@@ -190,8 +199,10 @@ for (Fun, Term) in [
         (:VectorLinearFunction, :VectorLinearTerm),
         (:QuadraticForm, :ScalarQuadraticTerm)]
 
+    WrappedFun = Symbol(:Wrapped, Fun)
     @eval begin
         wrap(l::$Fun{T}) where {T} = similar(l, FunctionWrapper{Vector{$Term{T}}, Tuple{}}(l.terms))
+        const $WrappedFun{T} = $Fun{T, FunctionWrapper{Vector{$Term{T}}, Tuple{}}}
 
         Base.:+(l::$Fun) = l
 
@@ -337,9 +348,11 @@ end
 
 
 # ScalarAffineFunction, VectorAffineFunction
-for (AffineFunction, Linear, Constant) in [
-        (:ScalarAffineFunction, :ScalarLinearFunction, :(Parameter{R} where R<:Real)),
-        (:VectorAffineFunction, :VectorLinearFunction, :(Parameter{Vector{R}} where R<:Real))]
+for (AffineFunction, Linear, Constant, N) in [
+        (:ScalarAffineFunction, :ScalarLinearFunction, :(Parameter{R} where R<:Real), 0),
+        (:VectorAffineFunction, :VectorLinearFunction, :(Parameter{Vector{R}} where R<:Real), 1)]
+    WrappedFun = Symbol(:Wrapped, AffineFunction)
+    WrappedLinear = Symbol(:Wrapped, Linear)
     @eval begin
         struct $AffineFunction{T, L <: $Linear{T}, C <: $Constant{T}}
             linear::L
@@ -351,8 +364,9 @@ for (AffineFunction, Linear, Constant) in [
             end
         end
 
-        wrap(a::$AffineFunction) = $AffineFunction(wrap(a.linear), wrap(a.constant))
         (f::$AffineFunction)(vals::Dict{Variable}) = f.linear(vals) + f.constant()
+        wrap(a::$AffineFunction) = $AffineFunction(wrap(a.linear), wrap(a.constant))
+        const $WrappedFun{T} = $AffineFunction{T, $WrappedLinear{T}, $Constant{T, $N, FunctionWrapper{T, Tuple{}}}}
     end
 
     for op in [:+, :-]
@@ -383,6 +397,7 @@ function VectorAffineFunction(constant::Parameter{Vector{T}}) where {T}
     VectorAffineFunction(linear, constant)
 end
 
+
 # QuadraticFunction
 struct QuadraticFunction{T, Q <: QuadraticForm{T}, A <: ScalarAffineFunction{T}}
     quadratic::Q
@@ -395,9 +410,10 @@ QuadraticFunction(affine::ScalarAffineFunction{T}) where {T} = QuadraticFunction
 QuadraticFunction(linear::ScalarLinearFunction) = QuadraticFunction(ScalarAffineFunction(linear))
 QuadraticFunction(constant::Parameter{<:Real}) = QuadraticFunction(ScalarAffineFunction(constant))
 
+(f::QuadraticFunction)(vals::Dict{Variable}) = f.quadratic(vals) + f.affine(vals)
 Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(Parameter(zero(T)))
 wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
-(f::QuadraticFunction)(vals::Dict{Variable}) = f.quadratic(vals) + f.affine(vals)
+const WrappedQuadraticFunction{T} = QuadraticFunction{T, WrappedQuadraticForm{T}, WrappedScalarAffineFunction{T}}
 
 for op in [:+, :-]
     @eval begin

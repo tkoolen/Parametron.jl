@@ -3,12 +3,14 @@ module Functions
 export
     Variable,
     # ScalarLinearTerm,
-    # ScalarQuadraticTerm,
     # VectorLinearTerm,
+    # ScalarQuadraticTerm,
     Parameter,
+    ScalarLinearFunction,
     VectorLinearFunction,
     QuadraticForm,
-    AffineFunction,
+    ScalarAffineFunction,
+    VectorAffineFunction,
     QuadraticFunction
 
 export
@@ -26,7 +28,7 @@ end
 Base.transpose(v::Variable) = v
 
 
-# ScalarLinearTerm
+# ScalarLinearTerm, ScalarQuadraticTerm, VectorLinearTerm
 struct ScalarLinearTerm{T}
     coeff::T
     var::Variable
@@ -34,7 +36,13 @@ end
 getcoeff(term::ScalarLinearTerm) = term.coeff
 setcoeff(term::ScalarLinearTerm, coeff) = ScalarLinearTerm(coeff, term.var)
 
-# ScalarQuadraticTerm
+struct VectorLinearTerm{T}
+    row::Int
+    scalarterm::ScalarLinearTerm{T}
+end
+getcoeff(term::VectorLinearTerm) = getcoeff(term.scalarterm)
+setcoeff(term::VectorLinearTerm, coeff) = VectorLinearTerm(term.row, setcoeff(term.scalarterm, coeff))
+
 struct ScalarQuadraticTerm{T}
     coeff::T
     rowvar::Variable
@@ -43,15 +51,7 @@ end
 getcoeff(term::ScalarQuadraticTerm) = term.coeff
 setcoeff(term::ScalarQuadraticTerm, coeff) = ScalarQuadraticTerm(coeff, term.rowvar, term.colvar)
 
-# VectorLinearTerm
-struct VectorLinearTerm{T}
-    output_index::Int
-    scalar_term::ScalarLinearTerm{T}
-end
-getcoeff(term::VectorLinearTerm) = getcoeff(term.scalar_term)
-setcoeff(term::VectorLinearTerm, coeff) = VectorLinearTerm(term.output_index, setcoeff(term.scalar_term, coeff))
-
-for Term in [:ScalarLinearTerm, :ScalarQuadraticTerm, :VectorLinearTerm]
+for Term in [:ScalarLinearTerm, :VectorLinearTerm, :ScalarQuadraticTerm]
     @eval begin
         Base.convert(::Type{$Term{T}}, term::$Term{T}) where {T} = term
         Base.convert(::Type{$Term{T}}, term::$Term) where {T} = setcoeff(term, convert(T, getcoeff(term)))
@@ -124,17 +124,17 @@ end
 Base.:*(pvector::Parameter{Vector{T2}}, pscalar::Parameter{T1}) where {T1 <: Real, T2 <: Real} = pscalar * pvector
 
 
-# VectorLinearFunction, QuadraticForm
-struct VectorLinearFunction{T, F}
-    terms::F
-end
+# ScalarLinearFunction, VectorLinearFunction, QuadraticForm
+for (Fun, Term) in [
+        (:ScalarLinearFunction, :ScalarLinearTerm),
+        (:VectorLinearFunction, :VectorLinearTerm),
+        (:QuadraticForm, :ScalarQuadraticTerm)]
 
-struct QuadraticForm{T, F}
-    terms::F
-end
-
-for (Fun, Term) in [(:VectorLinearFunction, :VectorLinearTerm), (:QuadraticForm, :ScalarQuadraticTerm)]
     @eval begin
+        struct $Fun{T, F}
+            terms::F
+        end
+
         $Fun{T}(terms::F) where {T, F} = $Fun{T, F}(terms)
         wrap(l::$Fun{T}) where {T} = $Fun{T}(FunctionWrapper{Vector{$Term{T}}, Tuple{}}(l.terms))
 
@@ -191,12 +191,13 @@ for (Fun, Term) in [(:VectorLinearFunction, :VectorLinearTerm), (:QuadraticForm,
         function Base.:*(c::Parameter{T1}, l::$Fun{T2}) where {T1 <: Real, T2}
             T = promote_type(T1, T2)
             ret = Vector{$Term{T}}()
-            terms = let c = c, l = l, ret = ret
+            terms = let c = c, lterms = l.terms, ret = ret
                 function ()
                     cval = c()
-                    empty!(ret)
-                    for term in l.terms()
-                        push!(ret, cval * term)
+                    ltermsval = l.terms()
+                    resize!(ret, length(ltermsval))
+                    @inbounds for i in eachindex(ltermsval)
+                        ret[i] = cval * ltermsval[i]
                     end
                     ret
                 end
@@ -255,7 +256,7 @@ function Base.dot(x::Vector{Variable}, l::VectorLinearFunction{T}) where T
             resize!(ret, length(linearterms))
             for i in eachindex(linearterms)
                 @inbounds linearterm = linearterms[i]
-                quadraticterm = ScalarQuadraticTerm(linearterm.scalar_term.coeff, x[linearterm.output_index], linearterm.scalar_term.var)
+                quadraticterm = ScalarQuadraticTerm(linearterm.scalarterm.coeff, x[linearterm.row], linearterm.scalarterm.var)
                 @inbounds ret[i] = quadraticterm
             end
             ret
@@ -265,38 +266,48 @@ function Base.dot(x::Vector{Variable}, l::VectorLinearFunction{T}) where T
 end
 
 
-# AffineFunction
-struct AffineFunction{L <: VectorLinearFunction, C <: Parameter{<:Vector{<:Real}}}
-    linear::L
-    constant::C
-end
-
-wrap(a::AffineFunction) = AffineFunction(wrap(a.linear), wrap(a.constant))
-
-for op in [:+, :-]
+# ScalarAffineFunction, VectorAffineFunction
+for (AffineFunction, Linear, Constant) in [
+        (:ScalarAffineFunction, :ScalarLinearFunction, :(Parameter{T} where T<:Real)),
+        (:VectorAffineFunction, :VectorLinearFunction, :(Parameter{Vector{T}} where T<:Real))]
     @eval begin
-        Base.$op(l::VectorLinearFunction, c::Parameter{<:Vector{<:Real}}) = AffineFunction(l, $op(c))
-        Base.$op(c::Parameter{<:Vector{<:Real}}, l::VectorLinearFunction) = AffineFunction($op(l), c)
-        Base.$op(a::AffineFunction, c::Parameter{<:Vector{<:Real}}) = AffineFunction(a.linear, $op(a.constant, c))
-        Base.$op(c::Parameter{<:Vector{<:Real}}, a::AffineFunction) = AffineFunction(a.linear, $op(c, a.constant))
-        Base.$op(a::AffineFunction, l::VectorLinearFunction) = AffineFunction($op(a.linear, l), a.constant)
-        Base.$op(l::VectorLinearFunction, a::AffineFunction) = AffineFunction($op(l, a.linear), a.constant)
+        struct $AffineFunction{L <: $Linear, C <: $Constant}
+            linear::L
+            constant::C
+        end
+
+        $AffineFunction(l::$Linear{S}) where {S} = $AffineFunction(l, zero($Constant{S}))
+
+        wrap(a::$AffineFunction) = $AffineFunction(wrap(a.linear), wrap(a.constant))
+    end
+
+    for op in [:+, :-]
+        @eval begin
+            Base.$op(l::$Linear, c::$Constant) = $AffineFunction(l, $op(c))
+            Base.$op(c::$Constant, l::$Linear) = $AffineFunction($op(l), c)
+            Base.$op(a::$AffineFunction, c::$Constant) = $AffineFunction(a.linear, $op(a.constant, c))
+            Base.$op(c::$Constant, a::$AffineFunction) = $AffineFunction(a.linear, $op(c, a.constant))
+            Base.$op(a::$AffineFunction, l::$Linear) = $AffineFunction($op(a.linear, l), a.constant)
+            Base.$op(l::$Linear, a::$AffineFunction) = $AffineFunction($op(l, a.linear), a.constant)
+        end
     end
 end
 
 
 # QuadraticFunction
-struct QuadraticFunction{Q <: QuadraticForm, A <: AffineFunction}
+struct QuadraticFunction{Q <: QuadraticForm, A <: ScalarAffineFunction}
     quadratic::Q
     affine::A
 end
 
 wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
 
-# for op in [:+, :-]
-#     @eval begin
-#         Base.$op(qform::QuadraticForm, c::Parameter)
-#     end
-# end
+for op in [:+, :-]
+    @eval begin
+        Base.$op(qform::QuadraticForm, c::Parameter{T} where T<:Real) = QuadraticFunction(qform, ScalarAffineFunction(c))
+        Base.$op(c::Parameter{T} where T<:Real, qform::QuadraticForm) = qform + c
+        # Base.$op(c::)
+    end
+end
 
 end

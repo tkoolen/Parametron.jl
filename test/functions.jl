@@ -6,10 +6,10 @@ using SimpleQP
 using SimpleQP.Functions
 
 @testset "Linear function basics" begin
-    x = [Variable(1), Variable(2)]
+    x = map(Variable, 1 : 2)
     A1 = [1.0 2.0; 3.0 4.0]
-    f1 = LinearTerm(A1, x)
-    f2 = 1.0 * LinearTerm(A1, x)
+    f1 = Parameter(A1) * x
+    f2 = Parameter(1.0) * f1
     vals = Dict(zip(x, [2.0, 5.0]))
     @test f1(vals) == f2(vals)
     @test f1(vals) == A1 * getindex.(vals, x)
@@ -21,21 +21,21 @@ using SimpleQP.Functions
     @test f4(vals) == f3(vals)
 
     A2 = [4.0 5.0; 6.0 7.0]
-    f5 = 1.5 * LinearTerm(A1, x) + 2.5 * LinearTerm(A2, x)
+    f5 = 1.5 * Parameter(A1) * x + 2.5 * Parameter(A2) * x
     @test f5(vals) == 1.5 * A1 * getindex.(vals, x) + 2.5 * A2 * getindex.(vals, x)
 
     f6 = -f5
     @test f6(vals) == -f5(vals)
 
-    f7 = LinearTerm(A1, x) - 0.5 * LinearTerm(A2, x)
+    f7 = Parameter(A1)*  x - 0.5 * Parameter(A2) * x
     @test f7(vals) == A1 * getindex.(vals, x) - 0.5 * A2 * getindex.(vals, x)
 
     y = [Variable(3), Variable(4)]
     A2 = [4.0 5.0; 6.0 7.0]
     vals = merge(Dict(zip(x, [2.0, 5.0])), Dict(zip(y, [-1.0, 2.0])))
 
-    f1 = 0.3 * LinearTerm(A1, x)
-    f2 = 2.0 * LinearTerm(A2, y)
+    f1 = 0.3 * Parameter(A1) * x
+    f2 = 2.0 * Parameter(A2) * y
     f3 = f1 + f2
     @test f3(vals) == f1(vals) + f2(vals)
 end

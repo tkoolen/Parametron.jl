@@ -41,8 +41,8 @@ include("functions.jl")
 
 using .Functions
 
-include("moi_interop.jl")
-include("model.jl")
-include("macros.jl")
+# include("moi_interop.jl")
+# include("model.jl")
+# include("macros.jl")
 
 end # module

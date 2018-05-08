@@ -4,14 +4,18 @@ export
     Variable,
     ScalarLinearTerm,
     VectorLinearTerm,
-    ScalarQuadraticTerm,
+    ScalarQuadraticTerm
+
+export
     Parameter,
     ScalarLinearFunction,
     VectorLinearFunction,
     QuadraticForm,
     ScalarAffineFunction,
     VectorAffineFunction,
-    QuadraticFunction,
+    QuadraticFunction
+
+export
     WrappedParameter,
     WrappedScalarLinearFunction,
     WrappedVectorLinearFunction,
@@ -26,6 +30,7 @@ export
 using Compat
 import FunctionWrappers: FunctionWrapper
 
+dimstring(d::Tuple{Vararg{Int}}) = isempty(d) ? "Scalar" : length(d) == 1 ? "$(d[1])-element" : join(map(string, d), '×')
 
 # Variable
 struct Variable
@@ -79,6 +84,7 @@ Parameter{T}(s::NTuple{N, Int}, f::F) where {T, N, F} = Parameter{T, N, F}(s, f)
 Parameter(val::T) where {T} = (f = () -> val; Parameter{T}(size(val), f))
 (p::Parameter{T})() where {T} = p.f()::T
 Base.size(p::Parameter) = p.size
+Base.show(io::IO, p::Parameter{T}) where {T} = print(io, dimstring(size(p)), " Parameter{$T, …}(…)")
 wrap(p::Parameter{T}) where {T} = Parameter{T}(p.size, FunctionWrapper{T, Tuple{}}(p.f))
 const WrappedParameter{T, N} = Parameter{T, N, FunctionWrapper{T, Tuple{}}}
 
@@ -145,6 +151,7 @@ for (Fun, Term) in [
         end
         $Fun{T}(terms::F) where {T, F} = $Fun{T, F}(terms)
         Base.size(::$Fun) = ()
+        Base.show(io::IO, ::$Fun{T}) where {T} = print(io, "$(string($Fun)){$T, …}(…)")
         Base.similar(::$Fun, ::Type{T}, terms::F) where {T, F} = $Fun{T, F}(terms)
         Base.similar(::$Fun{T}, terms::F) where {T, F} = $Fun{T, F}(terms)
         function Base.zero(::Type{$Fun{T}}) where T
@@ -182,6 +189,7 @@ end
 VectorLinearFunction{T}(l::Int, terms::F) where {T, F} = VectorLinearFunction{T, F}(l, terms)
 Base.length(fun::VectorLinearFunction) = fun.length
 Base.size(fun::VectorLinearFunction) = (fun.length,)
+Base.show(io::IO, f::VectorLinearFunction{T}) where {T} = print(io, "VectorLinearFunction{$T, …}(…) with output dimension $(length(f))")
 Base.similar(fun::VectorLinearFunction, ::Type{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
 Base.similar(fun::VectorLinearFunction{T}, terms::F) where {T, F} = VectorLinearFunction{T, F}(length(fun), terms)
 
@@ -385,6 +393,7 @@ end
 ScalarAffineFunction(linear::ScalarLinearFunction{T}) where {T} = ScalarAffineFunction(linear, Parameter(zero(T)))
 ScalarAffineFunction(constant::Parameter{T}) where {T} = ScalarAffineFunction(zero(ScalarLinearFunction{T}), constant)
 Base.zero(::Type{ScalarAffineFunction{T}}) where {T} = ScalarAffineFunction(Parameter(zero(T)))
+Base.show(io::IO, f::ScalarAffineFunction{T}) where {T} = print(io, "ScalarAffineFunction{$T, …}(…)")
 
 # VectorAffineFunction-specific
 VectorAffineFunction(linear::VectorLinearFunction{T}) where {T} = VectorAffineFunction(linear, Parameter(zeros(size(linear))))
@@ -396,6 +405,7 @@ function VectorAffineFunction(constant::Parameter{Vector{T}}) where {T}
     linear = VectorLinearFunction{T}(size(constant)[1], terms)
     VectorAffineFunction(linear, constant)
 end
+Base.show(io::IO, f::VectorAffineFunction{T}) where {T} = print(io, "VectorAffineFunction{$T, …}(…) with output dimension $(length(f.linear))")
 
 
 # QuadraticFunction
@@ -412,6 +422,7 @@ QuadraticFunction(constant::Parameter{<:Real}) = QuadraticFunction(ScalarAffineF
 
 (f::QuadraticFunction)(vals::Dict{Variable}) = f.quadratic(vals) + f.affine(vals)
 Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(Parameter(zero(T)))
+Base.show(io::IO, f::QuadraticFunction{T}) where {T} = print(io, "QuadraticFunction{$T, …}(…)")
 wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
 const WrappedQuadraticFunction{T} = QuadraticFunction{T, WrappedQuadraticForm{T}, WrappedScalarAffineFunction{T}}
 

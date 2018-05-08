@@ -2,9 +2,9 @@ module Functions
 
 export
     Variable,
-    # ScalarLinearTerm,
-    # VectorLinearTerm,
-    # ScalarQuadraticTerm,
+    ScalarLinearTerm,
+    VectorLinearTerm,
+    ScalarQuadraticTerm,
     Parameter,
     ScalarLinearFunction,
     VectorLinearFunction,
@@ -15,7 +15,6 @@ export
 
 export
     wrap
-    # outputdim
 
 using Compat
 import FunctionWrappers: FunctionWrapper
@@ -312,16 +311,16 @@ end
 
 # ScalarAffineFunction, VectorAffineFunction
 for (AffineFunction, Linear, Constant) in [
-        (:ScalarAffineFunction, :ScalarLinearFunction, :(Parameter{T} where T<:Real)),
-        (:VectorAffineFunction, :VectorLinearFunction, :(Parameter{Vector{T}} where T<:Real))]
+        (:ScalarAffineFunction, :ScalarLinearFunction, :(Parameter{R} where R<:Real)),
+        (:VectorAffineFunction, :VectorLinearFunction, :(Parameter{Vector{R}} where R<:Real))]
     @eval begin
-        struct $AffineFunction{L <: $Linear, C <: $Constant}
+        struct $AffineFunction{T, L <: $Linear{T}, C <: $Constant{T}}
             linear::L
             constant::C
 
-            function $AffineFunction(linear::L, constant::C) where {L <: $Linear, C <: $Constant}
+            function $AffineFunction(linear::L, constant::C) where {T, L <: $Linear{T}, C <: $Constant{T}}
                 @boundscheck size(linear) == size(constant) || throw(DimensionMismatch())
-                new{L, C}(linear, constant)
+                new{T, L, C}(linear, constant)
             end
         end
 
@@ -342,7 +341,8 @@ end
 
 # ScalarAffineFunction-specific
 ScalarAffineFunction(linear::ScalarLinearFunction{T}) where {T} = ScalarAffineFunction(linear, Parameter(zero(T)))
-ScalarAffineFunction(constant::Parameter{T}) where T<:Real = ScalarAffineFunction(zero(ScalarLinearFunction{T}), constant)
+ScalarAffineFunction(constant::Parameter{T}) where {T} = ScalarAffineFunction(zero(ScalarLinearFunction{T}), constant)
+Base.zero(::Type{ScalarAffineFunction{T}}) where {T} = ScalarAffineFunction(Parameter(zero(T)))
 
 # VectorAffineFunction-specific
 VectorAffineFunction(linear::VectorLinearFunction{T}) where {T} = VectorAffineFunction(linear, Parameter(zeros(size(linear))))
@@ -356,18 +356,26 @@ function VectorAffineFunction(constant::Parameter{Vector{T}}) where {T}
 end
 
 # QuadraticFunction
-struct QuadraticFunction{Q <: QuadraticForm, A <: ScalarAffineFunction}
+struct QuadraticFunction{T, Q <: QuadraticForm{T}, A <: ScalarAffineFunction{T}}
     quadratic::Q
     affine::A
 end
+
+QuadraticFunction(quadratic::Q, affine::A) where {T, Q<:QuadraticForm{T}, A<:ScalarAffineFunction{T}} = QuadraticFunction{T, Q, A}(quadratic, affine)
+QuadraticFunction(quadratic::QuadraticForm{T}) where {T} = QuadraticFunction(quadratic, zero(ScalarAffineFunction{T}))
+QuadraticFunction(affine::ScalarAffineFunction{T}) where {T} = QuadraticFunction(zero(QuadraticForm{T}), affine)
+QuadraticFunction(linear::ScalarLinearFunction) = QuadraticFunction(ScalarAffineFunction(linear))
+QuadraticFunction(constant::Parameter{<:Real}) = QuadraticFunction(ScalarAffineFunction(constant))
+Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(Parameter(zero(T)))
 
 wrap(q::QuadraticFunction) = QuadraticFunction(wrap(q.quadratic), wrap(q.affine))
 
 for op in [:+, :-]
     @eval begin
-        Base.$op(qform::QuadraticForm, c::Parameter{T} where T<:Real) = QuadraticFunction(qform, ScalarAffineFunction(c))
-        Base.$op(c::Parameter{T} where T<:Real, qform::QuadraticForm) = qform + c
-        # Base.$op(c::)
+        Base.$op(qform::QuadraticForm, c::Parameter{<:Real}) = QuadraticFunction(qform, ScalarAffineFunction($op(c)))
+        Base.$op(c::Parameter{T} where T<:Real, qform::QuadraticForm) = QuadraticFunction($op(qform), c)
+        Base.$op(qform::QuadraticForm, l::ScalarLinearFunction) = QuadraticForm(qform, ScalarAffineFunction($op(l)))
+        Base.$op(l::ScalarLinearFunction, qform::QuadraticForm) = QuadraticForm(qform, ScalarAffineFunction($op(l)))
     end
 end
 

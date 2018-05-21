@@ -86,7 +86,7 @@ struct Sum{T<:Fun} <: Fun
         isempty(terms) && throw(ArgumentError())
         m = outputdim(terms[1])
         for i = 2 : length(terms)
-            outputdim(terms[i]) == m || throw(DimensionError())
+            outputdim(terms[i]) == m || throw(DimensionMismatch())
         end
         new{T}(terms)
     end

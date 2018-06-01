@@ -1,3 +1,4 @@
+# TODO: Scalar constraints
 MOIU.@model(SimpleQPMOIModel, # modelname
     (), # scalarsets
     (), # typedscalarsets
@@ -9,128 +10,90 @@ MOIU.@model(SimpleQPMOIModel, # modelname
     (VectorAffineFunction,) # typedvectorfunctions
 )
 
+# Variable conversion
 Functions.Variable(v::MOI.VariableIndex) = Variable(v.value)
 MOI.VariableIndex(v::Variable) = MOI.VariableIndex(v.index)
 
-module Senses
-import MathOptInterface
-const MOI = MathOptInterface
 
-@enum Sense Min Max
-
+# Sense conversion
 function MOI.OptimizationSense(sense::Sense)
-    if sense == Min
+    if sense == Minimize
         MOI.MinSense
-    elseif sense == Max
+    elseif sense == Maximize
         MOI.MaxSense
     else
         error()
     end
 end
-end # module
 
-struct IdentityVarMap
-end
+
+# update!
+struct IdentityVarMap end
 Base.getindex(::IdentityVarMap, i) = MOI.VariableIndex(i)
+
+function update!(moi_f::MOI.ScalarAffineFunction, f::AffineFunction, varmap = IdentityVarMap())
+    moi_f.constant == f.constant[] || throw(ArgumentError("MOI.ScalarAffineFunction constant can't be modified."))
+    resize!(moi_f.terms, length(f.linear))
+    @inbounds for i in eachindex(f.linear)
+        term = f.linear[i]
+        moi_f.terms[i] = MOI.ScalarAffineTerm(term.coeff, varmap[term.var.index])
+    end
+    moi_f
+end
 
 function update!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction, varmap = IdentityVarMap())
     affine = f.affine
-    constant = 0.0
-    @inbounds for scaled in affine.constant.terms
-        constant += scaled.scalar * scaled.val.v[1]
+    moi_f.constant == affine.constant[] || throw(ArgumentError("MOI.ScalarQuadraticFunction constant can't be modified."))
+    resize!(moi_f.affine_terms, length(affine.linear))
+    @inbounds for i in eachindex(affine.linear)
+        term = affine.linear[i]
+        moi_f.affine_terms[i] = MOI.ScalarAffineTerm(term.coeff, varmap[term.var.index])
     end
-    moi_f.constant == constant || throw(ArgumentError("MOI ScalarQuadraticFunction constant can't be modified."))
-
-    empty!(moi_f.affine_variables)
-    empty!(moi_f.affine_coefficients)
-    for scaled in affine.linear.terms
-        s = scaled.scalar
-        linearterm = scaled.val
-        A = linearterm.A
-        x = linearterm.x
-        for col in 1 : size(A, 2)
-            push!(moi_f.affine_variables, varmap[x[col].index])
-            push!(moi_f.affine_coefficients, A[col])
-        end
-    end
-
-    empty!(moi_f.quadratic_rowvariables)
-    empty!(moi_f.quadratic_colvariables)
-    empty!(moi_f.quadratic_coefficients)
-    quadratic = f.quadratic
-    for scaled in quadratic.terms
-        s = scaled.scalar
-        quadraticterm = scaled.val
-        Q = quadraticterm.Q
-        x = quadraticterm.x
-        Q.uplo == 'U' || error()
-        Qdata = Q.data
-        @inbounds for col = 1 : Qdata.n, k = Qdata.colptr[col] : (Qdata.colptr[col + 1] - 1) # from sparse findn
-            row = Qdata.rowval[k]
-            if row <= col # upper triangle
-                push!(moi_f.quadratic_rowvariables, varmap[x[row].index])
-                push!(moi_f.quadratic_colvariables, varmap[x[col].index])
-                push!(moi_f.quadratic_coefficients, 2 * s * Qdata.nzval[k])
-            end
-        end
+    resize!(moi_f.quadratic_terms, length(f.quadratic))
+    @inbounds for i in eachindex(f.quadratic)
+        term = f.quadratic[i]
+        var_index_1 = varmap[term.rowvar.index]
+        var_index_2 = varmap[term.colvar.index]
+        coeff = var_index_1 == var_index_2 ? 2 * term.coeff : term.coeff
+        moi_f.quadratic_terms[i] = MOI.ScalarQuadraticTerm(coeff, var_index_1, var_index_2)
     end
     moi_f
 end
 
-function MOI.ScalarQuadraticFunction(f::QuadraticFunction)
-    VI = MOI.VariableIndex
-    affine = f.affine
-    constant = 0.0
-    @inbounds for scaled in affine.constant.terms
-        constant += scaled.scalar * scaled.val.v[1]
+function update!(moi_f::MOI.VectorAffineFunction, fs::Vector{<:AffineFunction}, varmap = IdentityVarMap())
+    resize!(moi_f.constants, length(fs))
+    num_linear_terms = 0
+    for f in fs
+        num_linear_terms += length(f.linear)
     end
-    ret = MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], constant)
-    update!(ret, f)
-    ret
-end
-
-function update!(moi_f::MOI.VectorAffineFunction, f::AffineFunction, varmap = IdentityVarMap())
-    empty!(moi_f.outputindex)
-    empty!(moi_f.variables)
-    empty!(moi_f.coefficients)
-    @inbounds for scaled in f.linear.terms
-        s = scaled.scalar
-        linearterm = scaled.val
-        A = linearterm.A
-        x = linearterm.x
-        indices = CartesianIndices(A)
-        for i in eachindex(A)
-            index = indices[i]
-            row = index[1]
-            col = index[2]
-            push!(moi_f.outputindex, row)
-            push!(moi_f.variables, varmap[x[col].index])
-            push!(moi_f.coefficients, A[i])
+    resize!(moi_f.terms, num_linear_terms)
+    i = 1
+    @inbounds for row in eachindex(fs)
+        f = fs[row]
+        for term in f.linear
+            moi_f.terms[i] = MOI.VectorAffineTerm(Int64(row), MOI.ScalarAffineTerm(term.coeff, varmap[term.var.index]))
+            i += 1
         end
-    end
-    resize!(moi_f.constant, outputdim(f))
-    moi_f.constant[:] = 0
-    @inbounds for scaled in f.constant.terms
-        s = scaled.scalar
-        c = scaled.val
-        moi_f.constant .+= s .* c.v
+        moi_f.constants[row] = f.constant[]
     end
     moi_f
 end
 
-function MOI.VectorAffineFunction(f::AffineFunction)
-    VI = MOI.VariableIndex
-    ret = MOI.VectorAffineFunction(Int[], VI[], Float64[], Float64[])
+update!(moi_f, f::WrappedExpression, varmap = IdentityVarMap()) = update!(moi_f, f(), varmap)
+
+
+# MOI function construction
+function MOI.ScalarAffineFunction(f::AffineFunction{T}) where T
+    ret = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{T}[], f.constant)
     update!(ret, f)
-    ret
 end
 
-mutable struct DataPair{A, B}
-    native::A
-    moi::B
+function MOI.ScalarQuadraticFunction(f::QuadraticFunction{T}) where T
+    ret = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm{T}[], MOI.ScalarQuadraticTerm{T}[], f.affine.constant[])
+    update!(ret, f)
 end
 
-function update!(pair::DataPair, varmap::Vector{MOI.VariableIndex})
-    # TODO: hash?
-    update!(pair.moi, pair.native, varmap)
+function MOI.VectorAffineFunction(fs::Vector{AffineFunction{T}}) where T
+    ret = MOI.VectorAffineFunction(MOI.VectorAffineTerm{T}[], T[])
+    update!(ret, fs)
 end

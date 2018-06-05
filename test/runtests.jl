@@ -167,4 +167,49 @@ end
     end
 end
 
+@testset "Model: box constrained using setbounds!" begin
+    # Minimize || x - p ||^2 = x' I x - 2 * p' * x + p ' * p
+    # subject to l <= x <= p
+    # where p is outside {x : l <= x <= p}
+
+    n = 10
+
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = [Variable(model) for _ = 1 : n]
+
+    P = Symmetric(speye(n))
+    qt = zeros(1, n)
+    r = [0.0]
+
+    objective = QuadraticTerm(P, x) + LinearTerm(qt, x) #+ r
+    setobjective!(model, Senses.Min, objective)
+    setbounds!.(model, x, 1.0, 1.0)
+    setbounds!.(model, x, -1.0, -1.0)
+    p = ones(n)
+    qt .= -2 .* p'
+    solve!(model)
+    @test value.(model, x) ≈ fill(-1.0, n) atol = 1e-4
+
+    rng = MersenneTwister(1234)
+    for testnum = 1 : 100
+        l = -rand(n) .- 1.0
+        u = rand(n) .+ 1.0
+        for i = 1 : n
+            let model = model, x = x, l = l, u = u, i = i # 15276
+                allocs = @allocated setbounds!(model, x[i], l[i], u[i])
+                testnum > 1 && @test allocs == 0
+            end
+        end
+
+        for vertex in [l, u]
+            p .= 2 .* u
+            qt .= -2 .* p'
+            allocs = @allocated solve!(model)
+            @test value.(model, x) ≈ u rtol = 1e-4
+            testnum > 1 && @test allocs == 0
+        end
+    end
+end
+
 end # module

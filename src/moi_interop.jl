@@ -1,9 +1,9 @@
 MOIU.@model(SimpleQPMOIModel, # modelname
     (), # scalarsets
-    (), # typedscalarsets
+    (Interval,), # typedscalarsets
     (Zeros, Nonnegatives, Nonpositives), # vectorsets
     (), # typedvectorsets
-    (), # scalarfunctions
+    (SingleVariable,), # scalarfunctions
     (ScalarQuadraticFunction,), # typedscalarfunctions
     (), # vectorfunctions
     (VectorAffineFunction,) # typedvectorfunctions
@@ -133,4 +133,23 @@ end
 function update!(pair::DataPair, varmap::Vector{MOI.VariableIndex})
     # TODO: hash?
     update!(pair.moi, pair.native, varmap)
+end
+
+mutable struct ConstraintIndexPair{F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+    modelindex::MOI.ConstraintIndex{F, S}
+    optimizerindex::MOI.ConstraintIndex{F, S}
+
+    ConstraintIndexPair{F, S}() where {F, S} = new{F, S}()
+end
+
+const VarBoundIndexPair = ConstraintIndexPair{MOI.SingleVariable, MOI.Interval{Float64}}
+
+mutable struct AffineConstraint{S<:MOI.AbstractSet}
+    fun::DataPair{AffineFunction, MOI.VectorAffineFunction{Float64}}
+    set::S
+    indexpair::ConstraintIndexPair{MOI.VectorAffineFunction{Float64}, S}
+
+    function AffineConstraint(f::AffineFunction, set::S) where {S<:MOI.AbstractSet}
+        new{S}(DataPair(f, MOI.VectorAffineFunction(f)), set, ConstraintIndexPair{MOI.VectorAffineFunction{Float64}, S}())
+    end
 end

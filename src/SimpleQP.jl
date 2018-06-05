@@ -18,6 +18,7 @@ export
 export
     quad,
     setobjective!,
+    setbounds!,
     add_nonnegative_constraint!,
     add_nonpositive_constraint!,
     add_zero_constraint!,

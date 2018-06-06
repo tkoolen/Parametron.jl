@@ -216,34 +216,37 @@ end
 subtract!(dest, x, y) = (copyto!(dest, x); subtract!(dest, y); dest)
 
 
-# multiply!
-function multiply!(dest::QuadraticFunction, x::AffineFunction, y::Union{Variable, <:LinearTerm})
-    zero!(dest)
-    resize!(dest.quadratic, length(x.linear))
+# muladd!
+function muladd!(dest::QuadraticFunction, x::AffineFunction, y::Union{Variable, <:LinearTerm})
+    offset = length(dest.quadratic)
+    resize!(dest.quadratic, offset + length(x.linear))
     @inbounds for i in eachindex(x.linear)
-        dest.quadratic[i] = x.linear[i] * y
+        dest.quadratic[offset + i] = x.linear[i] * y
     end
     add!(dest.affine, x.constant[] * y)
     dest
 end
 
-function multiply!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction)
-    zero!(dest)
+muladd!(dest::QuadraticFunction, x::Union{Variable, <:LinearTerm}, y::AffineFunction) = muladd!(dest, y, x)
+
+function muladd!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction)
     xlinear = x.linear
     ylinear = y.linear
-    resize!(dest.quadratic, length(xlinear) * length(ylinear))
+    quadoffset = length(dest.quadratic)
+    resize!(dest.quadratic, quadoffset + length(xlinear) * length(ylinear))
     k = 1
     @inbounds for i in eachindex(xlinear)
         for j in eachindex(ylinear)
-            dest.quadratic[k] = xlinear[i] * ylinear[j]
+            dest.quadratic[quadoffset + k] = xlinear[i] * ylinear[j]
             k += 1
         end
     end
     destaffine = dest.affine
     xconst = x.constant[]
     yconst = y.constant[]
-    resize!(destaffine.linear, length(xlinear) + length(ylinear))
-    k = 1
+    linoffset = length(destaffine.linear)
+    resize!(destaffine.linear, linoffset + length(xlinear) + length(ylinear))
+    k = linoffset + 1
     @inbounds for i in eachindex(xlinear)
         destaffine.linear[k] = xlinear[i] * yconst
         k += 1
@@ -252,7 +255,7 @@ function multiply!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction
         destaffine.linear[k] = ylinear[i] * xconst
         k += 1
     end
-    destaffine.constant[] = xconst * yconst
+    destaffine.constant[] += xconst * yconst
     dest
 end
 
@@ -282,11 +285,11 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
     end
 end
 
-Base.:*(x::AffineFunction{T}, y::Variable) where {T} = multiply!(zero(QuadraticFunction{T}), x, y)
-Base.:*(y::Variable, x::AffineFunction{T}) where {T} = multiply!(zero(QuadraticFunction{T}), x, y)
-Base.:*(x::AffineFunction{T}, y::Union{AffineFunction{S}, LinearTerm{S}}) where {T, S} = multiply!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
-Base.:*(y::Union{AffineFunction{S}, LinearTerm{S}}, x::AffineFunction{T}) where {T, S} = multiply!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
-Base.:*(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} = multiply!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::AffineFunction{T}, y::Variable) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
+Base.:*(y::Variable, x::AffineFunction{T}) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
+Base.:*(x::AffineFunction{T}, y::Union{AffineFunction{S}, LinearTerm{S}}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(y::Union{AffineFunction{S}, LinearTerm{S}}, x::AffineFunction{T}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
 
 
 # Number-like interface
@@ -333,53 +336,21 @@ function vecdot!(dest::QuadraticFunction,
     dest
 end
 
-function vecdot!(dest::QuadraticFunction,
-        xs::DenseVector{<:AffineFunction},
-        ys::DenseVector{<:Union{Variable, <:LinearTerm}})
+function quadvecdot!(dest::QuadraticFunction, x::DenseVector, y::DenseVector)
     zero!(dest)
-    @boundscheck length(xs) == length(ys) || throw(DimensionMismatch())
-    for i in eachindex(xs)
-        x = xs[i]
-        y = ys[i]
-        xlinear = x.linear
-        @inbounds for j in eachindex(xlinear)
-            push!(dest.quadratic, xlinear[j] * y)
-        end
-        push!(dest.affine.linear, x.constant[] * y)
+    @boundscheck length(x) == length(y) || throw(DimensionMismatch())
+    for i in eachindex(x)
+        muladd!(dest, x[i], y[i])
     end
     dest
-end
-function vecdot!(dest::QuadraticFunction,
-    xs::DenseVector{<:Union{Variable, <:LinearTerm}},
-    ys::DenseVector{<:AffineFunction})
-    vecdot!(dest, ys, xs)
 end
 
-function vecdot!(dest::QuadraticFunction, xs::DenseVector{<:AffineFunction}, ys::DenseVector{<:AffineFunction})
-    zero!(dest)
-    @boundscheck length(xs) == length(ys) || throw(DimensionMismatch())
-    for i in eachindex(xs)
-        x = xs[i]
-        y = ys[i]
-        xlinear = x.linear
-        ylinear = y.linear
-        @inbounds for j in eachindex(xlinear)
-            for k in eachindex(ylinear)
-                push!(dest.quadratic, xlinear[j] * ylinear[k])
-            end
-        end
-        xconst = x.constant[]
-        yconst = y.constant[]
-        @inbounds for j in eachindex(xlinear)
-            push!(dest.affine.linear, xlinear[j] * yconst)
-        end
-        @inbounds for j in eachindex(ylinear)
-            push!(dest.affine.linear, ylinear[j] * xconst)
-        end
-        dest.affine.constant[] += xconst * yconst
-    end
-    dest
-end
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:Union{Variable, <:LinearTerm}}) =
+    quadvecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:Union{Variable, <:LinearTerm}}, y::DenseVector{<:AffineFunction}) =
+    quadvecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:AffineFunction}) =
+    quadvecdot!(dest, x, y)
 
 for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
     @eval begin

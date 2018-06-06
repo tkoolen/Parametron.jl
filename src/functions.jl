@@ -2,208 +2,461 @@ module Functions
 
 export
     Variable,
-    Constant,
     LinearTerm,
     QuadraticTerm,
-    Scaled,
-    Sum,
     AffineFunction,
     QuadraticFunction
 
-export
-    outputdim
+using Compat
+using Compat.LinearAlgebra
 
-import ..SimpleQP: quad
+@static if VERSION >= v"0.7-"
+    const TransposeVector{T, V<:AbstractVector{T}} = Transpose{T, V}
+    const AdjointVector{T, V<:AbstractVector{T}} = Adjoint{T, V}
+else
+    const TransposeVector{T, V<:AbstractVector{T}} = RowVector{T, V}
+    const AdjointVector{T, V<:AbstractVector{T}} = RowVector{T, ConjVector{T, V}}
+end
 
-const SparseSymmetric64 = Symmetric{Float64,SparseMatrixCSC{Float64,Int}}
+const LinearAlgebra = Compat.LinearAlgebra
 
-abstract type Fun end
 
 # Variable
 struct Variable
     index::Int
 end
+Base.hash(v::Variable, h::UInt) = hash(v.index, h)
 
 
-# Constant
-struct Constant <: Fun
-    v::Vector{Float64}
+# LinearTerm, QuadraticTerm
+struct LinearTerm{T}
+    coeff::T
+    var::Variable
 end
-outputdim(f::Constant) = length(f.v)
-@inline isquadratic(::Type{Constant}) = false
-(f::Constant)() = f.v
+LinearTerm{T}(var::Variable) where {T} = LinearTerm{T}(one(T), var)
+Base.show(io::IO, term::LinearTerm) = print(io, term.coeff, " * ", "x", term.var.index)
+getcoeff(term::LinearTerm) = term.coeff
+setcoeff(term::LinearTerm, coeff) = LinearTerm(coeff, term.var)
+Base.:*(coeff::Number, var::Variable) = LinearTerm(coeff, var)
+Base.:*(var::Variable, coeff::Number) = LinearTerm(coeff, var)
+Base.promote_rule(::Type{LinearTerm{T}}, ::Type{Variable}) where {T} = LinearTerm{T}
+Base.convert(::Type{LinearTerm{T}}, var::Variable) where {T} = LinearTerm{T}(var)
 
+struct QuadraticTerm{T}
+    coeff::T
+    rowvar::Variable
+    colvar::Variable
+end
+Base.show(io::IO, term::QuadraticTerm) = print(io, term.coeff, " * x", term.rowvar.index, " * x", term.colvar.index)
+getcoeff(term::QuadraticTerm) = term.coeff
+setcoeff(term::QuadraticTerm, coeff) = QuadraticTerm(coeff, term.rowvar, term.colvar)
+Base.:*(x::Variable, y::LinearTerm) = QuadraticTerm(y.coeff, x, y.var)
+Base.:*(y::LinearTerm, x::Variable) = QuadraticTerm(y.coeff, y.var, x)
+Base.:*(x::Variable, y::Variable) = QuadraticTerm(1, x, y)
+Base.:*(x::LinearTerm, y::LinearTerm) = QuadraticTerm(x.coeff * y.coeff, x.var, y.var)
 
-# LinearTerm
-struct LinearTerm <: Fun
-    A::Matrix{Float64}
-    x::Vector{Variable}
-
-    function LinearTerm(A::Matrix{Float64}, x::Vector{Variable})
-        size(A, 2) === length(x) || error()
-        new(A, x)
+for Term in [:LinearTerm, :QuadraticTerm]
+    @eval begin
+        Base.promote_rule(::Type{$Term{T1}}, ::Type{$Term{T2}}) where {T1, T2} = $Term{promote_type(T1, T2)}
+        Base.convert(::Type{$Term{T}}, term::$Term{T}) where {T} = term
+        Base.convert(::Type{$Term{T}}, term::$Term) where {T} = setcoeff(term, convert(T, getcoeff(term)))
+        @inline coefftype(::Type{$Term{T}}) where {T} = T
+        Base.:+(term::$Term) = term
+        Base.:-(term::$Term) = setcoeff(term, -getcoeff(term))
+        Base.:*(c::Number, term::$Term) = setcoeff(term, c * getcoeff(term))
+        Base.:*(term::$Term, c::Number) = c * term
     end
 end
-outputdim(f::LinearTerm) = size(f.A, 1)
-@inline isquadratic(::Type{LinearTerm}) = false
-(f::LinearTerm)(vals::Associative{Variable, Float64}) = f.A * getindex.(vals, f.x)
-
-# QuadraticTerm
-struct QuadraticTerm <: Fun
-    Q::SparseSymmetric64
-    x::Vector{Variable}
-
-    function QuadraticTerm(Q::SparseSymmetric64, x::Vector{Variable})
-        n = length(x)
-        size(Q) == (n, n) || throw(DimensionMismatch())
-        new(Q, x)
-    end
-end
-quad(Q::SparseSymmetric64, x::Vector{Variable}) = QuadraticTerm(Q, x)
-QuadraticTerm() = QuadraticTerm(Symmetric(spzeros(0, 0)), Variable[])
-outputdim(f::QuadraticTerm) = 1
-@inline isquadratic(::Type{QuadraticTerm}) = true
-(f::QuadraticTerm)(vals::Associative{Variable, Float64}) = quad(f.Q, getindex.(vals, f.x))
-
-
-# Scaled
-struct Scaled{T<:Fun} <: Fun
-    scalar::Float64
-    val::T
-    Scaled{T}(scalar::Float64, val::T) where {T<:Fun} = new{T}(scalar, val)
-end
-Scaled(scalar::Float64, val::T) where {T<:Fun} = Scaled{T}(scalar, val)
-outputdim(f::Scaled) = outputdim(f.val)
-@inline isquadratic(::Type{Scaled{T}}) where {T<:Fun} = isquadratic(T)
-(f::Scaled)(x...) = f.scalar * f.val(x...)
-
-
-# Sum
-struct Sum{T<:Fun} <: Fun
-    terms::Vector{T}
-
-    function Sum{T}(terms::Vector{T}) where {T}
-        isempty(terms) && throw(ArgumentError())
-        m = outputdim(terms[1])
-        for i = 2 : length(terms)
-            outputdim(terms[i]) == m || throw(DimensionMismatch())
-        end
-        new{T}(terms)
-    end
-end
-Sum(terms::Vector{T}) where {T<:Fun} = Sum{T}(terms)
-outputdim(f::Sum) = isempty(f.terms) ? 0 : outputdim(f.terms[1])
-@inline isquadratic(::Type{Sum{T}}) where {T<:Fun} = isquadratic(T)
-(f::Sum)(x...) = sum(term -> term(x...), f.terms)
 
 
 # AffineFunction
-struct AffineFunction <: Fun
-    linear::Sum{Scaled{LinearTerm}}
-    constant::Sum{Scaled{Constant}}
-
-    function AffineFunction(linear::Sum{Scaled{LinearTerm}}, constant::Sum{Scaled{Constant}})
-        outputdim(linear) === outputdim(constant) || throw(ArgumentError())
-        new(linear, constant)
-    end
+struct AffineFunction{T}
+    linear::Vector{LinearTerm{T}}
+    constant::Base.RefValue{T}
 end
-outputdim(f::AffineFunction) = outputdim(f.constant)
-@inline isquadratic(::Type{AffineFunction}) = false
-(f::AffineFunction)(vals::Associative{Variable, Float64}) = f.linear(vals) .+ f.constant()
+AffineFunction{T}(f::AffineFunction) where {T} =
+    AffineFunction(copyto!(Vector{LinearTerm{T}}(undef, length(f.linear)), f.linear), T(f.constant[]))
+AffineFunction(f::AffineFunction{T}) where {T} = AffineFunction{T}(f)
+AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where {T, S} =
+    AffineFunction{promote_type(T, S)}(linear, constant)
+AffineFunction(linear::Vector{LinearTerm{T}}, constant) where {T} = AffineFunction(linear, Ref(constant))
+coefftype(::Type{AffineFunction{T}}) where {T} = T
+
+Base.:(==)(x::AffineFunction, y::AffineFunction) = x.linear == y.linear && x.constant[] == y.constant[]
+Base.isequal(x::AffineFunction, y::AffineFunction) = isequal(x.linear, y.linear) && isequal(x.constant[], y.constant[])
+Base.hash(x::AffineFunction, h::UInt) = (h = hash(x.linear, h); hash(x.constant, h))
+
+Base.zero(::Type{AffineFunction{T}}) where {T} = AffineFunction(LinearTerm{T}[], Ref(zero(T)))
+zero!(f::AffineFunction) = (empty!(f.linear); f.constant[] = 0; f)
+
+Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
+Base.convert(::Type{AffineFunction{T}}, x::Number) where {T} = AffineFunction(LinearTerm{T}[], convert(T, x))
+Base.convert(::Type{AffineFunction{T}}, x::LinearTerm) where {T} = AffineFunction([convert(LinearTerm{T}, x)], zero(T))
+
+function Base.show(io::IO, f::AffineFunction)
+    for term in f.linear
+        print(io, term, " + ")
+    end
+    print(io, f.constant[])
+end
+
+function (f::AffineFunction{T})(vals::Associative{Variable, S}) where {T, S}
+    R′ = Base.promote_op(*, T, S)
+    R = Base.promote_op(+, R′, R′)
+    ret = convert(R, f.constant[])
+    for term in f.linear
+        ret += term.coeff * vals[term.var]
+    end
+    ret
+end
 
 
 # QuadraticFunction
-struct QuadraticFunction <: Fun
-    quadratic::Sum{Scaled{QuadraticTerm}}
-    affine::AffineFunction
+struct QuadraticFunction{T}
+    quadratic::Vector{QuadraticTerm{T}}
+    affine::AffineFunction{T}
+end
+QuadraticFunction{T}(f::QuadraticFunction) where {T} = QuadraticFunction(copyto!(Vector{QuadraticTerm{T}}(undef, length(f.quadratic)), f.quadratic), AffineFunction{T}(f.affine))
+QuadraticFunction(f::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(f)
+coefftype(::Type{QuadraticFunction{T}}) where {T} = T
 
-    function QuadraticFunction(quadratic::Sum{Scaled{QuadraticTerm}}, affine::AffineFunction)
-        outputdim(quadratic) === outputdim(affine) || throw(ArgumentError())
-        new(quadratic, affine)
+Base.:(==)(x::QuadraticFunction, y::QuadraticFunction) = x.quadratic == y.quadratic && x.affine == y.affine
+Base.isequal(x::QuadraticFunction, y::QuadraticFunction) = isequal(x.quadratic, y.quadratic) && isequal(x.affine, y.affine)
+Base.hash(x::QuadraticFunction, h::UInt) = (h = hash(x.quadratic, h); hash(x.affine, h))
+
+Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(QuadraticTerm{T}[], zero(AffineFunction{T}))
+zero!(f::QuadraticFunction) = (empty!(f.quadratic); zero!(f.affine); f)
+
+# TODO: conversions
+
+function Base.show(io::IO, f::QuadraticFunction)
+    for term in f.quadratic
+        print(io, term, " + ")
     end
-end
-QuadraticFunction() = convert(QuadraticFunction, Constant([0.0]))
-outputdim(f::QuadraticFunction) = 1
-@inline isquadratic(::Type{QuadraticFunction}) = true
-(f::QuadraticFunction)(vals::Associative{Variable, Float64}) = f.quadratic(vals) .+ f.affine(vals)[1]
-
-
-# Promotion
-Base.promote_rule(::Type{T}, ::Type{T}) where {T<:Fun} = T
-Base.promote_rule(::Type{T}, ::Type{Scaled{T}}) where {T<:Fun} = Scaled{T}
-Base.promote_rule(::Type{T}, ::Type{Sum{T}}) where {T<:Fun} = Sum{T}
-Base.promote_rule(::Type{T}, ::Type{S}) where {T<:Fun, S<:Fun} = isquadratic(T) || isquadratic(S) ? QuadraticFunction : AffineFunction
-
-
-# Conversion
-Base.convert(::Type{Scaled{T}}, x::Fun) where {T<:Fun} = Scaled{T}(1.0, convert(T, x))
-Base.convert(::Type{Scaled{T}}, x::Scaled{T}) where {T<:Fun} = x
-Base.convert(::Type{Sum{T}}, x::Fun) where {T<:Fun} = Sum{T}(T[convert(T, x)])
-Base.convert(::Type{Sum{T}}, x::Sum{T}) where {T<:Fun} = x
-Base.convert(::Type{AffineFunction}, x::Constant) = convert(AffineFunction, convert(Scaled{Constant}, x))
-Base.convert(::Type{AffineFunction}, x::LinearTerm) = convert(AffineFunction, convert(Scaled{LinearTerm}, x))
-Base.convert(::Type{AffineFunction}, x::Scaled{Constant}) = convert(AffineFunction, convert(Sum{Scaled{Constant}}, x))
-Base.convert(::Type{AffineFunction}, x::Scaled{LinearTerm}) = convert(AffineFunction, convert(Sum{Scaled{LinearTerm}}, x))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{LinearTerm}}) =
-    AffineFunction(x, convert(Sum{Scaled{Constant}}, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{AffineFunction}, x::Sum{Scaled{Constant}}) =
-    AffineFunction(convert(Sum{Scaled{LinearTerm}}, LinearTerm(zeros(outputdim(x), 0), Vector{Variable}())), x)
-Base.convert(::Type{QuadraticFunction}, x::QuadraticFunction) = x
-Base.convert(::Type{QuadraticFunction}, x::QuadraticTerm) = convert(QuadraticFunction, convert(Scaled{QuadraticTerm}, x))
-Base.convert(::Type{QuadraticFunction}, x::Scaled{QuadraticTerm}) =
-    convert(QuadraticFunction, convert(Sum{Scaled{QuadraticTerm}}, x))
-Base.convert(::Type{QuadraticFunction}, x::Sum{Scaled{QuadraticTerm}}) =
-    QuadraticFunction(x, convert(AffineFunction, Constant(zeros(outputdim(x)))))
-Base.convert(::Type{QuadraticFunction}, x::Fun) =
-    QuadraticFunction(convert(Sum{Scaled{QuadraticTerm}}, QuadraticTerm()), convert(AffineFunction, x))
-
-
-# Operations
-Base.:*(x::Real, f::T) where {T<:Fun} = simplify(Scaled{T}(Float64(x), simplify(f)))
-Base.:*(f::Fun, x::Real) = x * f
-Base.:-(f::Fun) = -1.0 * f
-Base.:+(f1::Fun, f2::Fun) = +(promote(f1, f2)...)
-Base.:+(f1::T, f2::T) where {T<:Fun} = simplify(Sum{T}(T[simplify(f1), simplify(f2)]))
-Base.:-(f1::Fun, f2::Fun) = f1 + -f2
-
-
-# Simplification
-simplify(f::Fun) = f
-simplify(f::Scaled{<:Scaled}) = simplify(Scaled(f.scalar * f.val.scalar, f.val.val))
-simplify(f::Scaled{<:Sum}) = simplify(Sum([simplify(Scaled(f.scalar, term)) for term in f.val.terms]))
-
-function simplify(f::Scaled{AffineFunction})
-    linear = simplify(Scaled(f.scalar, f.val.linear))
-    constant = simplify(Scaled(f.scalar, f.val.constant))
-    AffineFunction(linear, constant)
+    print(io, f.affine)
 end
 
-function simplify(f::Scaled{QuadraticFunction})
-    quadratic = simplify(Scaled(f.scalar, f.val.quadratic))
-    affine = simplify(Scaled(f.scalar, f.val.affine))
-    QuadraticFunction(quadratic, affine)
+function (f::QuadraticFunction{T})(vals::Associative{Variable, S}) where {T, S}
+    ret = f.affine(vals)
+    for term in f.quadratic
+        ret += term.coeff * vals[term.rowvar] * vals[term.colvar]
+    end
+    ret
 end
 
-function simplify(f::Sum{Sum{T}}) where {T}
-    terms = Vector{T}()
-    for sum in f.terms
-        for term in sum.terms
-            push!(terms, term)
+
+# copyto!
+Compat.copyto!(f::AffineFunction, x::Number) = (zero!(f); f.constant[] = x; f)
+Compat.copyto!(f::AffineFunction, x::LinearTerm) = (zero!(f); push!(f.linear, x); f)
+Compat.copyto!(f::AffineFunction{T}, x::Variable) where {T} = copyto!(f, LinearTerm{T}(x))
+function Compat.copyto!(f::AffineFunction, x::AffineFunction)
+    resize!(f.linear, length(x.linear))
+    copyto!(f.linear, x.linear)
+    f.constant[] = x.constant[]
+    f
+end
+function Compat.copyto!(f::QuadraticFunction, x::Union{<:Number, <:LinearTerm, Variable, <:AffineFunction})
+     empty!(f.quadratic)
+     copyto!(f.affine, x)
+     f
+end
+Compat.copyto!(f::QuadraticFunction, x::QuadraticTerm) = (zero!(f); push!(f.quadratic, x); f)
+function Compat.copyto!(f::QuadraticFunction, x::QuadraticFunction)
+    resize!(f.quadratic, length(x.quadratic))
+    copyto!(f.quadratic, x.quadratic)
+    copyto!(f.affine, x.affine)
+    f
+end
+
+
+# add!
+add!(f::AffineFunction, x::Number) = (f.constant[] += x; f)
+add!(f::AffineFunction{T}, x::Variable) where {T} = add!(f, LinearTerm{T}(x))
+add!(f::AffineFunction, x::LinearTerm) = (push!(f.linear, x); f)
+add!(f::AffineFunction, x::AffineFunction) = (append!(f.linear, x.linear); f.constant[] += x.constant[]; f)
+
+add!(f::QuadraticFunction, x::Union{<:Number, <:LinearTerm, Variable, <:AffineFunction}) = (add!(f.affine, x); f)
+add!(f::QuadraticFunction, x::QuadraticTerm) = (push!(f.quadratic, x); f)
+add!(f::QuadraticFunction, x::QuadraticFunction) = (append!(f.quadratic, x.quadratic); add!(f.affine, x.affine); f)
+
+add!(dest, x, y) = (copyto!(dest, x); add!(dest, y); dest)
+
+
+# subtract!
+subtract!(f::AffineFunction, x::Number) = (f.constant[] -= x; f)
+subtract!(f::AffineFunction{T}, x::Variable) where {T} = subtract!(f, LinearTerm{T}(x))
+subtract!(f::AffineFunction, x::LinearTerm) = add!(f, -x)
+function subtract!(f::AffineFunction, x::AffineFunction)
+    offset = length(f)
+    resize!(f.linear, offset + length(x.linear))
+    @inbounds for i in eachindex(x.linear)
+        f.linear[offset + i] = -x.linear[i]
+    end
+    f.constant[] -= x.constant[]
+    f
+end
+
+subtract!(f::QuadraticFunction, x::Number) = (subtract!(f.affine, x); f)
+subtract!(f::QuadraticFunction, x::LinearTerm) = (subtract!(f.affine, x); f)
+subtract!(f::QuadraticFunction, x::Variable) = (subtract!(f.affine, x); f)
+subtract!(f::QuadraticFunction, x::AffineFunction) = (subtract!(f.affine, x); f)
+subtract!(f::QuadraticFunction, x::QuadraticTerm) = add!(f, -x)
+function subtract!(f::QuadraticFunction, x::QuadraticFunction)
+    offset = length(f)
+    resize!(f.quadratic, offset + length(x.quadratic))
+    @inbounds for i in eachindex(x.quadratic)
+        f.quadratic[offset + i] = -x.quadratic[i]
+    end
+    subtract!(f.affine, x.affine)
+    f
+end
+
+subtract!(dest, x, y) = (copyto!(dest, x); subtract!(dest, y); dest)
+
+
+# muladd!
+function muladd!(dest::QuadraticFunction, x::AffineFunction, y::Union{Variable, <:LinearTerm})
+    offset = length(dest.quadratic)
+    resize!(dest.quadratic, offset + length(x.linear))
+    @inbounds for i in eachindex(x.linear)
+        dest.quadratic[offset + i] = x.linear[i] * y
+    end
+    add!(dest.affine, x.constant[] * y)
+    dest
+end
+
+muladd!(dest::QuadraticFunction, x::Union{Variable, <:LinearTerm}, y::AffineFunction) = muladd!(dest, y, x)
+
+function muladd!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction)
+    xlinear = x.linear
+    ylinear = y.linear
+    quadoffset = length(dest.quadratic)
+    resize!(dest.quadratic, quadoffset + length(xlinear) * length(ylinear))
+    k = 1
+    @inbounds for i in eachindex(xlinear)
+        for j in eachindex(ylinear)
+            dest.quadratic[quadoffset + k] = xlinear[i] * ylinear[j]
+            k += 1
         end
     end
-    simplify(Sum(terms))
+    destaffine = dest.affine
+    xconst = x.constant[]
+    yconst = y.constant[]
+    linoffset = length(destaffine.linear)
+    resize!(destaffine.linear, linoffset + length(xlinear) + length(ylinear))
+    k = linoffset + 1
+    @inbounds for i in eachindex(xlinear)
+        destaffine.linear[k] = xlinear[i] * yconst
+        k += 1
+    end
+    @inbounds for i in eachindex(ylinear)
+        destaffine.linear[k] = ylinear[i] * xconst
+        k += 1
+    end
+    destaffine.constant[] += xconst * yconst
+    dest
 end
 
-function simplify(f::Sum{AffineFunction})
-    linear = simplify(Sum([term.linear for term in f.terms]))
-    constant = simplify(Sum([term.constant for term in f.terms]))
-    AffineFunction(linear, constant)
+# Operators
+for (op, fun!) in [(:+, add!), (:-, subtract!)]
+    @eval begin
+        Base.$op(x::LinearTerm{T}, y::LinearTerm{T}) where {T} = AffineFunction([x, $op(y)], zero(T))
+        Base.$op(x::LinearTerm, y::LinearTerm) = +(promote(x, y)...)
+        Base.$op(x::Variable, y::Variable) = $op(LinearTerm{Int}(x), LinearTerm{Int}(y))
+        Base.$op(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} =
+            $fun!(AffineFunction{promote_type(T, S)}(x), y)
+        Base.$op(x::LinearTerm, y::Number) = AffineFunction([x], $op(y))
+        Base.$op(x::Number, y::LinearTerm) = AffineFunction([$op(y)], x)
+        Base.$op(x::Variable, y::T) where {T<:Number} = $op(LinearTerm{T}(x), y)
+        Base.$op(x::T, y::Variable) where {T<:Number} = $op(x, LinearTerm{T}(y))
+        Base.$op(x::AffineFunction, y::Number) = $fun!(AffineFunction(x), y)
+        Base.$op(x::Number, y::AffineFunction) = $op(y, x)
+
+        Base.$op(x::QuadraticTerm{T}, y::QuadraticTerm{T}) where {T} = QuadraticFunction([x, $op(y)], zero(AffineFunction{T}))
+        Base.$op(x::QuadraticTerm, y::QuadraticTerm) = +(promote(x, y)...)
+        Base.$op(x::QuadraticFunction{T}, y::QuadraticFunction{S}) where {T, S} =
+            $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
+        Base.$op(x::QuadraticFunction{T}, y::Union{S, LinearTerm{S}, QuadraticTerm{S}, AffineFunction{S}}) where {S <: Number, T} =
+            $fun!(QuadraticFunction{promote_type(S, T)}(x), y)
+        Base.$op(x::Union{S, LinearTerm{S}, QuadraticTerm{S}, AffineFunction{S}}, y::QuadraticFunction{T}) where {S <: Number, T} =
+            $fun!(QuadraticFunction{promote_type(S, T)}(y), x)
+    end
 end
 
-function simplify(f::Sum{QuadraticFunction})
-    quadratic = simplify(Sum([term.quadratic for term in f.terms]))
-    affine = simplify(Sum([term.affine for term in f.terms]))
-    QuadraticFunction(quadratic, affine)
+Base.:*(x::AffineFunction{T}, y::Variable) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
+Base.:*(y::Variable, x::AffineFunction{T}) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
+Base.:*(x::AffineFunction{T}, y::Union{AffineFunction{S}, LinearTerm{S}}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(y::Union{AffineFunction{S}, LinearTerm{S}}, x::AffineFunction{T}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+
+
+# Number-like interface
+const SimpleQPFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
+Base.transpose(x::SimpleQPFunctions) = x
+Base.dot(x::SimpleQPFunctions, y::SimpleQPFunctions) = x * y
+Base.zero(::T) where {T<:SimpleQPFunctions} = zero(T)
+Base.one(::T) where {T<:SimpleQPFunctions} = one(T)
+if VERSION >= v"0.7-"
+    Base.adjoint(x::SimpleQPFunctions) = x
+end
+
+
+# Array operations
+# TODO: reduce code duplication
+function vecdot!(dest, x::DenseVector, y::DenseVector)
+    # fallback
+    vecdot(x, y)
+end
+
+function vecdot!(dest::AffineFunction,
+        x::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}},
+        y::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}})
+    zero!(dest)
+    @boundscheck length(x) == length(y) || throw(DimensionMismatch())
+    linear = dest.linear
+    resize!(linear, length(x))
+    @inbounds for i in eachindex(x)
+        linear[i] = x[i] * y[i]
+    end
+    dest
+end
+
+function vecdot!(dest::QuadraticFunction,
+        x::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}},
+        y::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}})
+    zero!(dest)
+    @boundscheck length(x) == length(y) || throw(DimensionMismatch())
+    quadratic = dest.quadratic
+    resize!(quadratic, length(x))
+    @inbounds for i in eachindex(x)
+        quadratic[i] = x[i] * y[i]
+    end
+    dest
+end
+
+function quadvecdot!(dest::QuadraticFunction, x::DenseVector, y::DenseVector)
+    zero!(dest)
+    @boundscheck length(x) == length(y) || throw(DimensionMismatch())
+    for i in eachindex(x)
+        muladd!(dest, x[i], y[i])
+    end
+    dest
+end
+
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:Union{Variable, <:LinearTerm}}) =
+    quadvecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:Union{Variable, <:LinearTerm}}, y::DenseVector{<:AffineFunction}) =
+    quadvecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:AffineFunction}) =
+    quadvecdot!(dest, x, y)
+
+for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
+    @eval begin
+        function $vecfun!(dest::DenseVector{AffineFunction{T}}, x::DenseVector, y::DenseVector) where T
+            n = length(x)
+            @boundscheck n == length(y) || throw(DimensionMismatch())
+            resize!(dest, n)
+            @inbounds for i in eachindex(dest)
+                if isassigned(dest, i)
+                    zero!(dest[i])
+                else
+                    dest[i] = zero(AffineFunction{T})
+                end
+                $scalarfun!(dest[i], x[i], y[i])
+            end
+            dest
+        end
+    end
+end
+
+function matvecmul!(
+        y::DenseVector{AffineFunction{T}},
+        A::DenseMatrix{T},
+        x::DenseVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
+    rows, cols = size(A)
+    @boundscheck length(y) == rows || throw(DimensionMismatch())
+    @boundscheck length(x) == cols || throw(DimensionMismatch())
+    @inbounds for row in eachindex(y)
+        if isassigned(y, row)
+            zero!(y[row])
+        else
+            y[row] = zero(AffineFunction{T})
+        end
+        resize!(y[row].linear, cols)
+    end
+    i = 1
+    @inbounds for col in Base.OneTo(cols)
+        for row in Base.OneTo(rows)
+            y[row].linear[col] = A[i] * x[col]
+            i += 1
+        end
+    end
+    y
+end
+
+function bilinearmul!(
+        dest::QuadraticFunction,
+        Q::DenseMatrix,
+        x::Union{TransposeVector{Variable, <:DenseVector{Variable}}, AdjointVector{Variable, <:DenseVector{Variable}}},
+        y::DenseVector{Variable})
+    @boundscheck size(Q) == (length(x), length(y)) || throw(DimensionMismatch())
+    zero!(dest)
+    quadratic = dest.quadratic
+    resize!(quadratic, length(Q))
+    k = 1
+    @inbounds for row in eachindex(x)
+        xrow = x[row]
+        for col in eachindex(y)
+            quadratic[k] = QuadraticTerm(Q[k], xrow, y[col])
+            k += 1
+        end
+    end
+    dest
+end
+
+function Base.:*(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
+    matvecmul!(similar(x, AffineFunction{T}, size(A, 1)) , A, x)
+end
+
+
+if VERSION >= v"0.7-"
+    error("TODO: implement mul! for 0.7")
+else
+    LinearAlgebra.At_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
+        At_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), transpose(A), x)
+    LinearAlgebra.Ac_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
+        Ac_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), adjoint(A), x)
+
+    LinearAlgebra.A_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
+        matvecmul!(y, A, x)
+    LinearAlgebra.At_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
+        matvecmul!(y, transpose(A), x)
+    LinearAlgebra.Ac_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
+        matvecmul!(y, adjoint(A), x)
+end
+# TODO: A_mul_B!, etc.
+
+function LinearAlgebra.vecdot(x::AbstractArray{T}, y::AbstractArray{Variable}) where {T<:Number}
+    vecdot!(zero(AffineFunction{T}), x, y)
+end
+
+function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{T}) where {T<:Number}
+    vecdot!(zero(AffineFunction{T}), x, y)
+end
+
+function LinearAlgebra.vecdot(
+        x::AbstractArray{T},
+        y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
+    R = T <: Variable ? (S <: Variable ? Int : coefftype(S)) : coefftype(T)
+    vecdot!(zero(QuadraticFunction{R}), x, y)
+end
+
+function LinearAlgebra.vecdot(x::AbstractArray{LinearTerm{T}}, y::AbstractArray{Variable}) where T
+    vecdot!(zero(QuadraticFunction{T}), x, y)
+end
+
+function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
+    vecdot!(zero(QuadraticFunction{T}), x, y)
 end
 
 end

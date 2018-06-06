@@ -1,33 +1,67 @@
-mutable struct Constraint{S<:MOI.AbstractSet}
-    fun::DataPair{AffineFunction, MOI.VectorAffineFunction{Float64}}
-    set::S
-    modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
-    optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}, S}
-    Constraint(f::AffineFunction, set::S) where {S<:MOI.AbstractSet} = new{S}(DataPair(f, MOI.VectorAffineFunction(f)), set)
-end
+mutable struct Objective{T}
+    sense::Sense
+    expr::WrappedExpression{QuadraticFunction{T}}
+    moi_f::MOI.ScalarQuadraticFunction{T}
 
-mutable struct Model{O<:MOI.AbstractOptimizer}
-    backend::SimpleQPMOIModel{Float64}
-    optimizer::O
-    initialized::Bool
-    objective::DataPair{QuadraticFunction, MOI.ScalarQuadraticFunction{Float64}}
-    nonnegconstraints::Vector{Constraint{MOI.Nonnegatives}}
-    nonposconstraints::Vector{Constraint{MOI.Nonpositives}}
-    zeroconstraints::Vector{Constraint{MOI.Zeros}}
-    user_var_to_optimizer::Vector{MOI.VariableIndex}
+    function Objective{T}(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T}
+        new{T}(sense, expr, MOI.ScalarQuadraticFunction(expr()))
+    end
 
-    function Model(optimizer::O) where O
-        VI = MOI.VariableIndex
-        backend = SimpleQPMOIModel{Float64}()
-        initialized = false
-        objective = DataPair(QuadraticFunction(), MOI.ScalarQuadraticFunction(VI[], Float64[], VI[], VI[], Float64[], 0.0))
-        nonnegconstraints = Constraint{MOI.Nonnegatives}[]
-        nonposconstraints = Constraint{MOI.Nonpositives}[]
-        zeroconstraints = Constraint{MOI.Zeros}[]
-        user_var_to_optimizer = Vector{MOI.VariableIndex}()
-        new{O}(backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
+    function Objective{T}(sense:: Sense, expr::LazyExpression) where {T}
+        Objective(sense, WrappedExpression{QuadraticFunction{T}}(expr))
     end
 end
+Objective(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T} = Objective{T}(sense, expr)
+
+# TODO: ScalarAffineFunction constraints
+mutable struct Constraint{T, S<:MOI.AbstractSet}
+    expr::WrappedExpression{Vector{AffineFunction{T}}}
+    moi_f::MOI.VectorAffineFunction{T}
+    set::S
+    modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
+    optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
+
+    function Constraint{T}(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet}
+        new{T, S}(expr, MOI.VectorAffineFunction(expr()), set)
+    end
+
+    function Constraint{T}(expr::LazyExpression, set::S) where {T, S<:MOI.AbstractSet}
+        Constraint(WrappedExpression{Vector{AffineFunction{T}}}(expr), set)
+    end
+end
+Constraint(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet} = Constraint{T}(expr, set)
+
+mutable struct Model{T, O<:MOI.AbstractOptimizer}
+    params::Vector{Parameter}
+    backend::SimpleQPMOIModel{T}
+    optimizer::O
+    initialized::Bool
+    objective::Objective{T}
+    nonnegconstraints::Vector{Constraint{T, MOI.Nonnegatives}}
+    nonposconstraints::Vector{Constraint{T, MOI.Nonpositives}}
+    zeroconstraints::Vector{Constraint{T, MOI.Zeros}}
+    user_var_to_optimizer::Vector{MOI.VariableIndex}
+
+    function Model{T}(optimizer::O) where {T, O}
+        VI = MOI.VariableIndex
+        params = Parameter[]
+        backend = SimpleQPMOIModel{T}()
+        initialized = false
+        objfun = zero(QuadraticFunction{T})
+        objective = Objective{T}(Minimize, @expression identity(objfun))
+        nonnegconstraints = Constraint{T, MOI.Nonnegatives}[]
+        nonposconstraints = Constraint{T, MOI.Nonpositives}[]
+        zeroconstraints = Constraint{T, MOI.Zeros}[]
+        user_var_to_optimizer = Vector{MOI.VariableIndex}()
+        new{T, O}(params, backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
+    end
+end
+Model(optimizer::MOI.AbstractOptimizer) = Model{Float64}(optimizer)
+
+Base.show(io::IO, m::Model{T, O}) where {T, O} = print(io, "Model{$T, $O}(…)")
+
+setdirty!(model::Model) = foreach(setdirty!, model.params)
+addparameter!(model::Model, param::Parameter) = (push!(model.params, param); param)
 
 function Variable(m::Model)
     m.initialized && error()
@@ -35,32 +69,31 @@ function Variable(m::Model)
     Variable(index)
 end
 
-function setobjective!(m::Model, sense::Senses.Sense, f)
-    m.initialized && error()
-    MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense)) # TODO: consider putting in a DataPair as well
-    m.objective.native = convert(QuadraticFunction, f)
-    m.objective.moi = MOI.ScalarQuadraticFunction(m.objective.native)
-    # update!(m.objective)
-    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
+function setobjective!(m::Model, sense::Sense, expr)
+    m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
+    m.objective.sense = sense
+    m.objective.expr = expr
+    m.objective.moi_f = MOI.ScalarQuadraticFunction(expr())
+    MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
+    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi_f)
     nothing
 end
 
-Base.push!(m::Model, c::Constraint{MOI.Nonnegatives}) = push!(m.nonnegconstraints, c)
-Base.push!(m::Model, c::Constraint{MOI.Nonpositives}) = push!(m.nonposconstraints, c)
-Base.push!(m::Model, c::Constraint{MOI.Zeros}) = push!(m.zeroconstraints, c)
+addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonnegatives}) where {T} = push!(m.nonnegconstraints, c)
+addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonpositives}) where {T} = push!(m.nonposconstraints, c)
+addconstraint!(m::Model{T}, c::Constraint{T, MOI.Zeros}) where {T} = push!(m.zeroconstraints, c)
 
-function addconstraint!(m::Model, f, set::MOI.AbstractVectorSet)
+function addconstraint!(m::Model{T}, f, set::MOI.AbstractVectorSet) where T
     m.initialized && error()
-    f_affine = convert(AffineFunction, f)
-    constraint = Constraint(f_affine, set)
-    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f_affine), set)
-    push!(m, constraint)
+    constraint = Constraint{T}(f, set)
+    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f()), set)
+    addconstraint!(m, constraint)
     nothing
 end
 
-add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(outputdim(f)))
-add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(outputdim(f)))
-add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(outputdim(f)))
+add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(length(f())))
+add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(length(f())))
+add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(length(f())))
 
 function mapindices(m::Model, idxmap)
     for c in m.nonnegconstraints
@@ -90,26 +123,29 @@ end
     nothing
 end
 
-function updateobjective!(m::Model)
-    update!(m.objective, m.user_var_to_optimizer)
-    MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi)
+function update!(obj::Objective, m::Model)
+    update!(obj.moi_f, obj.expr(), m.user_var_to_optimizer)
+    MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj.moi_f)
+    nothing
 end
 
-function updateconstraint!(m::Model, constraint::Constraint)
-    update!(constraint.fun, m.user_var_to_optimizer)
-    MOI.modifyconstraint!(m.optimizer, constraint.optimizerindex, constraint.fun.moi)
+function update!(constraint::Constraint, m::Model)
+    update!(constraint.moi_f, constraint.expr(), m.user_var_to_optimizer)
+    MOI.modifyconstraint!(m.optimizer, constraint.optimizerindex, constraint.moi_f)
+    nothing
 end
 
 function update!(m::Model)
-    updateobjective!(m)
+    setdirty!(m)
+    update!(m.objective, m)
     for c in m.nonnegconstraints
-        updateconstraint!(m, c)
+        update!(c, m)
     end
     for c in m.nonposconstraints
-        updateconstraint!(m, c)
+        update!(c, m)
     end
     for c in m.zeroconstraints
-        updateconstraint!(m, c)
+        update!(c, m)
     end
     nothing
 end
@@ -130,4 +166,25 @@ end
 
 function objectivevalue(m::Model)
     MOI.get(m.optimizer, MOI.ObjectiveValue())
+end
+
+macro constraint(model, expr)
+    addcon = if @capture(expr, >=(lhs_, rhs_))
+        :(SimpleQP.add_nonnegative_constraint!)
+    elseif @capture(expr, ==(lhs_, rhs_))
+        :(SimpleQP.add_zero_constraint!)
+    elseif @capture(expr, <=(lhs_, rhs_))
+        :(SimpleQP.add_nonpositive_constraint!)
+    else
+        return :(throw(ArgumentError("Relation not recognized")))
+    end
+    quote
+        $addcon($model, @expression $lhs - $rhs)
+    end |> esc
+end
+
+macro objective(model, sense, expr)
+    quote
+        setobjective!($model, $sense, @expression $expr)
+    end |> esc
 end

@@ -5,93 +5,99 @@ using Compat.Test
 using SimpleQP
 using SimpleQP.Functions
 
-@testset "Linear function basics" begin
-    x = [Variable(1), Variable(2)]
-    A1 = [1.0 2.0; 3.0 4.0]
-    f1 = LinearTerm(A1, x)
-    f2 = 1.0 * LinearTerm(A1, x)
-    vals = Dict(zip(x, [2.0, 5.0]))
-    @test f1(vals) == f2(vals)
-    @test f1(vals) == A1 * getindex.(vals, x)
-
-    f3 = 2 * f2
-    @test f3(vals) == 2 * f2(vals)
-
-    f4 = f2 * 2.0
-    @test f4(vals) == f3(vals)
-
-    A2 = [4.0 5.0; 6.0 7.0]
-    f5 = 1.5 * LinearTerm(A1, x) + 2.5 * LinearTerm(A2, x)
-    @test f5(vals) == 1.5 * A1 * getindex.(vals, x) + 2.5 * A2 * getindex.(vals, x)
-
-    f6 = -f5
-    @test f6(vals) == -f5(vals)
-
-    f7 = LinearTerm(A1, x) - 0.5 * LinearTerm(A2, x)
-    @test f7(vals) == A1 * getindex.(vals, x) - 0.5 * A2 * getindex.(vals, x)
-
-    y = [Variable(3), Variable(4)]
-    A2 = [4.0 5.0; 6.0 7.0]
-    vals = merge(Dict(zip(x, [2.0, 5.0])), Dict(zip(y, [-1.0, 2.0])))
-
-    f1 = 0.3 * LinearTerm(A1, x)
-    f2 = 2.0 * LinearTerm(A2, y)
-    f3 = f1 + f2
-    @test f3(vals) == f1(vals) + f2(vals)
+@testset "LinearTerm" begin
+    x = Variable(1)
+    @test LinearTerm(4.5, x) === 4.5 * x
+    @test LinearTerm(4.5, x) === x * 4.5
+    @test convert(LinearTerm{Float64}, x) === 1.0 * x
+    @test promote(LinearTerm(4.5, x), x) === (4.5 * x, 1.0 * x)
+    @test +(2 * x) === 2 * x
+    @test -(2 * x) === -2 * x
+    @test 2 * (3 * x) === x * 6
+    @test (2 * x) * 3 === 6 * x
+    buf = IOBuffer()
+    show(buf, LinearTerm(4.5, x))
+    @test String(take!(buf)) == "4.5 * x1"
 end
 
-@testset "Linear function modification" begin
-    x = [Variable(1), Variable(2)]
-    A1 = [1.0 2.0; 3.0 4.0]
-    vals = Dict(zip(x, [2.0, 5.0]))
-    f1 = 0.5 * LinearTerm(A1, x)
-    f1val = f1(vals)
-    A1 .*= 2
-    @test f1(vals) == 2.0 * f1val
+@testset "QuadraticTerm" begin
+    x = Variable(1)
+    y = Variable(2)
+    @test x * y === QuadraticTerm(1, x, y)
+    @test (2 * x) * y === QuadraticTerm(2, x, y)
+    @test x * (2 * y) === QuadraticTerm(2, x, y)
+
+    @test promote(QuadraticTerm(4.5, x, y), QuadraticTerm(3, x, y)) === (QuadraticTerm(4.5, x, y), QuadraticTerm(3.0, x, y))
+    @test +(2 * x * y) === 2 * x * y
+    @test -(2 * x * y) === -2 * x * y
+    @test 2 * (3 * x * y) === x * 6 * y
+    @test (y * 2 * x) * 3 === 6 * y * x
+    buf = IOBuffer()
+    show(buf, QuadraticTerm(1, x, y))
+    @test String(take!(buf)) == "1 * x1 * x2"
 end
 
 @testset "AffineFunction" begin
-    x = Variable.(1 : 3)
-    y = Variable.(4 : 6)
-    A1 = [1.0 2.0 3.0; 3.0 4.0 5.0]
-    A2 = [4.0 5.0 5.0; 6.0 7.0 8.0]
-    vals = merge(Dict(zip(x, [2.0, 5.0, 0.5])), Dict(zip(y, [-1.0, 2.0, 4.5])))
-    c = [0.1, 0.8]
+    x = Variable(1)
+    y = Variable(2)
 
-    f = LinearTerm(A1, x) - 3.0 * LinearTerm(A2, y) + Constant(c)
-    @test f(vals) == A1 * getindex.(vals, x) - 3.0 * A2 * getindex.(vals, y) + c
+    vals1 = Dict(x => 1.0, y => 2.0)
+    f1 = 2 * x + 3 * y + 5
+    @test f1(vals1) == 2.0 + 3.0 * 2.0 + 5
+    buf = IOBuffer()
+    show(buf, f1)
+    @test String(take!(buf)) == "2 * x1 + 3 * x2 + 5"
 
-    f2 = convert(AffineFunction, Constant(c))
-    @test (-f2)(vals) == -c
+    vals2 = Dict(x => 2, y => -1)
+    f2 = 2.5 * x + 4 * y + 1
+    @test f2(vals2) == 2.5 * 2 - 4 + 1
+
+    f3 = zero(typeof(f2))
+    @test typeof(f3) == typeof(f2)
+    @test f3(vals2) === 0.0
+
+    f4 = f1 + f2
+    @test f4(vals1) == f1(vals1) + f2(vals1)
+    @test f4(vals2) == f1(vals2) + f2(vals2)
+
+    f5 = f1 + 4.0
+    @test f5(vals1) == f1(vals1) + 4.0
+
+    f6 = 1 + f5
+    @test f6(vals1) == 1 + f5(vals1)
 end
 
-@testset "Quadratic" begin
-    n = 4
-    A1 = Symmetric(sparse(triu(reshape(1.0 : n^2, n, n))))
-    x = [Variable(i) for i = 1 : n]
+# TODO:
+# @testset "QuadraticFunction" begin
+#     x = Variable.(1 : 2)
 
-    f1 = quad(A1, x)
-    xval = collect(1.0 : n)
-    vals = Dict(zip(x, xval))
-    @test f1(vals) ≈ dot(xval, A1 * xval) atol = 1e-15
+# end
 
-    f2 = f1 + 2 * f1
-    @test f2(vals) ≈ 3 * f1(vals) atol = 1e-15
+@testset "Matrix operations" begin
+    x = Variable.(1 : 2)
+    A1 = [1.0 2.0; 3.0 4.0]
+    fs = A1 * x
+    @test fs isa Vector{AffineFunction{Float64}}
+    vals = Dict(zip(x, [2.0, 5.0]))
+    fvals = [f(vals) for f in fs]
+    xvals = getindex.(vals, x)
+    @test fvals == A1 * xvals
 
-    m = 2
-    y = [Variable(i) for i = n + 1 : n + m]
-    yval = collect(7.0 : 6.0 + m)
-    merge!(vals, Dict(zip(y, yval)))
-    A2 = Symmetric(sparse(triu(reshape(5.0 : 4.0 + m^2, m, m))))
-    f3 = 0.5 * quad(A1, x) + 2 * quad(A2, y)
-    @test f3(vals) ≈ 0.5 * dot(xval, A1 * xval) + 2 * dot(yval, A2 * yval) atol = 1e-15
+    a = [1, 2]
+    @test a ⋅ x == x ⋅ a == a[1] * x[1] + a[2] * x[2]
 
-    f4 = f3 + Constant([3.0])
-    @test f4(vals) ≈ f3(vals) + 3.0 atol = 1e-15
+    gs = fs .+ a
+    gvals = [g(vals) for g in gs]
 
-    @test_throws DimensionMismatch quad(A2, x)
+    @test (gs ⋅ gs)(vals) == gvals ⋅ gvals
+    @test (gs ⋅ x)(vals) == gvals ⋅ xvals
+    @test (x ⋅ gs)(vals) == xvals ⋅ gvals
 
-    @test QuadraticTerm()(vals) == 0.0
+    h = x ⋅ x
+    @test h(vals) == xvals ⋅ xvals
+    buf = IOBuffer()
+    show(buf, h)
+    @test String(take!(buf)) == "1 * x1 * x1 + 1 * x2 * x2 + 0"
 end
 
-end
+end # module

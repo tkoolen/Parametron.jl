@@ -15,6 +15,10 @@ import SimpleQP: setdirty!
     @test expr() == a + b * c
 end
 
+@testset "bad expression" begin
+    @test_throws(ArgumentError, @expression x ? y : z)
+end
+
 @testset "parameter" begin
     model = MockModel()
     a = 3
@@ -38,6 +42,7 @@ end
     expr1 = @expression(a + b * c)
     expr2 = @expression(4 * expr1)
     @test expr2() == 4 * expr1()
+    show(devnull, expr1)
 end
 
 module M

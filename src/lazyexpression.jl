@@ -21,17 +21,24 @@ end
 
 # expression macro
 macro expression(expr)
-    postwalk(expr) do x
+    expr = postwalk(expr) do x
         if @capture(x, f_(args__))
             :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
-            if x isa Expr && x.head ∉ [:block, :line, :globalref]
-                dump(expr)
-                error("Unhandled expression head: $(x.head)")
+            if x isa Expr && x.head ∉ [:block, :line]
+                buf = IOBuffer()
+                dump(buf, expr)
+                msg =
+                    """
+                    Unhandled expression head: $(x.head). expr:
+                    $(String(take!(buf)))
+                    """
+                return :(throw(ArgumentError($msg)))
             end
             x
         end
-    end |> esc
+    end
+    esc(expr)
 end
 
 
@@ -73,10 +80,6 @@ end
 
 function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type, ::Type, ::Type...)
     optimize_toplevel(LazyExpression(+, optimize_toplevel(LazyExpression(+, expr.args[1], expr.args[2])), expr.args[3 : end]...))
-end
-
-function optimize(expr::LazyExpression{typeof(-)}, ::Type, ::Type, ::Type, ::Type...)
-    optimize_toplevel(LazyExpression(-, optimize_toplevel(LazyExpression(-, expr.args[1], expr.args[2])), expr.args[3 : end]...))
 end
 
 function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type)

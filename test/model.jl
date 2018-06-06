@@ -104,6 +104,7 @@ end
     # TODO: currently need to subtract b ⋅ b to make it so that constant is zero (due to limitation in MOI 0.3)
     @objective(model, Minimize, residual ⋅ residual - b ⋅ b)
     @constraint(model, C * x == d)
+    @test_throws ArgumentError @constraint(model, C * x ≈ d)
 
     rng = MersenneTwister(1234)
     for i = 1 : 100

@@ -176,7 +176,7 @@ macro constraint(model, expr)
     elseif @capture(expr, <=(lhs_, rhs_))
         :(SimpleQP.add_nonpositive_constraint!)
     else
-        throw(ArgumentError("Relation not recognized"))
+        return :(throw(ArgumentError("Relation not recognized")))
     end
     quote
         $addcon($model, @expression $lhs - $rhs)

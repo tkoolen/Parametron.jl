@@ -31,4 +31,3 @@ function (parameter::Parameter)()
 end
 
 setdirty!(parameter::Parameter) = (parameter.dirty[] = true; nothing)
-data(parameter::Parameter) = parameter.val[]

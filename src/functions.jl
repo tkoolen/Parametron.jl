@@ -26,7 +26,6 @@ struct Variable
     index::Int
 end
 Base.hash(v::Variable, h::UInt) = hash(v.index, h)
-Base.one(::Type{Variable}) = 1
 
 
 # LinearTerm, QuadraticTerm
@@ -35,7 +34,6 @@ struct LinearTerm{T}
     var::Variable
 end
 LinearTerm{T}(var::Variable) where {T} = LinearTerm{T}(one(T), var)
-LinearTerm(var::Variable) = LinearTerm(1, var)
 Base.show(io::IO, term::LinearTerm) = print(io, term.coeff, " * ", "x", term.var.index)
 getcoeff(term::LinearTerm) = term.coeff
 setcoeff(term::LinearTerm, coeff) = LinearTerm(coeff, term.var)

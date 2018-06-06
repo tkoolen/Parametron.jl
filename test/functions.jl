@@ -15,6 +15,9 @@ using SimpleQP.Functions
     @test -(2 * x) === -2 * x
     @test 2 * (3 * x) === x * 6
     @test (2 * x) * 3 === 6 * x
+    buf = IOBuffer()
+    show(buf, LinearTerm(4.5, x))
+    @test String(take!(buf)) == "4.5 * x1"
 end
 
 @testset "QuadraticTerm" begin
@@ -29,6 +32,9 @@ end
     @test -(2 * x * y) === -2 * x * y
     @test 2 * (3 * x * y) === x * 6 * y
     @test (y * 2 * x) * 3 === 6 * y * x
+    buf = IOBuffer()
+    show(buf, QuadraticTerm(1, x, y))
+    @test String(take!(buf)) == "1 * x1 * x2"
 end
 
 @testset "AffineFunction" begin
@@ -38,7 +44,9 @@ end
     vals1 = Dict(x => 1.0, y => 2.0)
     f1 = 2 * x + 3 * y + 5
     @test f1(vals1) == 2.0 + 3.0 * 2.0 + 5
-    show(devnull, f1)
+    buf = IOBuffer()
+    show(buf, f1)
+    @test String(take!(buf)) == "2 * x1 + 3 * x2 + 5"
 
     vals2 = Dict(x => 2, y => -1)
     f2 = 2.5 * x + 4 * y + 1
@@ -84,6 +92,12 @@ end
     @test (gs ⋅ gs)(vals) == gvals ⋅ gvals
     @test (gs ⋅ x)(vals) == gvals ⋅ xvals
     @test (x ⋅ gs)(vals) == xvals ⋅ gvals
+
+    h = x ⋅ x
+    @test h(vals) == xvals ⋅ xvals
+    buf = IOBuffer()
+    show(buf, h)
+    @test String(take!(buf)) == "1 * x1 * x1 + 1 * x2 * x2 + 0"
 end
 
 end # module

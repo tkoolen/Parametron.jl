@@ -54,7 +54,7 @@ function update!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction, varma
         term = f.quadratic[i]
         var_index_1 = varmap[term.rowvar.index]
         var_index_2 = varmap[term.colvar.index]
-        coeff = var_index_1 == var_index_2 ? 2 * term.coeff : term.coeff
+        coeff = ifelse(term.rowvar == term.colvar, 2 * term.coeff, term.coeff)
         moi_f.quadratic_terms[i] = MOI.ScalarQuadraticTerm(coeff, var_index_1, var_index_2)
     end
     moi_f

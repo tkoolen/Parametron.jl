@@ -6,6 +6,7 @@ end
 
 Base.show(io::IO, expr::LazyExpression) = print(io, "LazyExpression{…}($(string(expr.f)), …)")
 
+
 # Evaluation
 evalarg(x) = x
 evalarg(x::Parameter) = x()
@@ -16,6 +17,7 @@ evalarg(x::LazyExpression) = x()
     argexprs = [:(evalarg(args[$i])) for i = 1 : N]
     :(f($(argexprs...)))
 end
+
 
 # expression macro
 macro expression(expr)
@@ -54,13 +56,13 @@ function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:DenseMatrix{T}}, ::T
     A, x = expr.args
     rows, _ = size(A())
     y = [zero(AffineFunction{Float64}) for _ = 1 : rows]
-    LazyExpression(Functions.affine_matvecmul!, y, A, x)
+    LazyExpression(Functions.matvecmul!, y, A, x)
 end
 
 function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:TransposeVector{Variable}}, ::Type{<:AbstractMatrix{T}}, ::Type{<:DenseVector{Variable}}) where {T <: Number}
     x, Q, y = expr.args
     dest = zero(QuadraticFunction{T})
-    LazyExpression(Functions.quadratic_bilinear_mul!, dest, Q, x, y)
+    LazyExpression(Functions.bilinearmul!, dest, Q, x, y)
 end
 
 function optimize(expr::LazyExpression{<:Union{typeof(vecdot), typeof(dot)}}, ::Type{<:DenseVector}, ::Type{<:DenseVector})

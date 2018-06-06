@@ -73,7 +73,7 @@ using .M
     @test allocs == 0
 end
 
-@testset "affine matvecmul specialization" begin
+@testset "matvecmul!" begin
     m = MockModel()
     A = Parameter(rand!, zeros(3, 4), m)
     x = Variable.(1 : 4)

@@ -101,7 +101,8 @@ end
 
     residual = @expression A * x - b
 
-    @objective(model, Minimize, residual ⋅ residual - b ⋅ b) # subtract b ⋅ b to make it so that constant is zero (due to current limitation in MOI)
+    # TODO: currently need to subtract b ⋅ b to make it so that constant is zero (due to limitation in MOI 0.3)
+    @objective(model, Minimize, residual ⋅ residual - b ⋅ b)
     @constraint(model, C * x == d)
 
     rng = MersenneTwister(1234)
@@ -148,7 +149,8 @@ end
     end
 
     residual = @expression x - p
-    @objective(model, Minimize,residual ⋅ residual - p ⋅ p) # subtract p ⋅ p to make it so that constant is zero (due to current limitation in MOI)
+    # TODO: currently need to subtract p ⋅ p to make it so that constant is zero (due to limitation in MOI 0.3)
+    @objective(model, Minimize, residual ⋅ residual - p ⋅ p)
     @constraint(model, x >= l)
     @constraint(model, x <= u)
 

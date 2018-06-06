@@ -76,9 +76,11 @@ struct AffineFunction{T}
     linear::Vector{LinearTerm{T}}
     constant::Base.RefValue{T}
 end
-AffineFunction{T}(f::AffineFunction) where {T} = AffineFunction(copyto!(Vector{LinearTerm{T}}(undef, length(f.linear)), f.linear), T(f.constant[]))
+AffineFunction{T}(f::AffineFunction) where {T} =
+    AffineFunction(copyto!(Vector{LinearTerm{T}}(undef, length(f.linear)), f.linear), T(f.constant[]))
 AffineFunction(f::AffineFunction{T}) where {T} = AffineFunction{T}(f)
-AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where {T, S} = AffineFunction{promote_type(T, S)}(linear, constant)
+AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where {T, S} =
+    AffineFunction{promote_type(T, S)}(linear, constant)
 AffineFunction(linear::Vector{LinearTerm{T}}, constant) where {T} = AffineFunction(linear, Ref(constant))
 coefftype(::Type{AffineFunction{T}}) where {T} = T
 
@@ -119,6 +121,11 @@ end
 QuadraticFunction{T}(f::QuadraticFunction) where {T} = QuadraticFunction(copyto!(Vector{QuadraticTerm{T}}(undef, length(f.quadratic)), f.quadratic), AffineFunction{T}(f.affine))
 QuadraticFunction(f::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(f)
 coefftype(::Type{QuadraticFunction{T}}) where {T} = T
+
+Base.:(==)(x::QuadraticFunction, y::QuadraticFunction) = x.quadratic == y.quadratic && x.affine == y.affine
+Base.isequal(x::QuadraticFunction, y::QuadraticFunction) = isequal(x.quadratic, y.quadratic) && isequal(x.affine, y.affine)
+Base.hash(x::QuadraticFunction, h::UInt) = (h = hash(x.quadratic, h); hash(x.affine, h))
+
 Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(QuadraticTerm{T}[], zero(AffineFunction{T}))
 zero!(f::QuadraticFunction) = (empty!(f.quadratic); zero!(f.affine); f)
 
@@ -166,8 +173,8 @@ end
 
 # add!
 add!(f::AffineFunction, x::Number) = (f.constant[] += x; f)
-add!(f::AffineFunction, x::LinearTerm) = (push!(f.linear, x); f)
 add!(f::AffineFunction{T}, x::Variable) where {T} = add!(f, LinearTerm{T}(x))
+add!(f::AffineFunction, x::LinearTerm) = (push!(f.linear, x); f)
 add!(f::AffineFunction, x::AffineFunction) = (append!(f.linear, x.linear); f.constant[] += x.constant[]; f)
 
 add!(f::QuadraticFunction, x::Union{<:Number, <:LinearTerm, Variable, <:AffineFunction}) = (add!(f.affine, x); f)
@@ -179,8 +186,8 @@ add!(dest, x, y) = (copyto!(dest, x); add!(dest, y); dest)
 
 # subtract!
 subtract!(f::AffineFunction, x::Number) = (f.constant[] -= x; f)
-subtract!(f::AffineFunction, x::LinearTerm) = add!(f, -x)
 subtract!(f::AffineFunction{T}, x::Variable) where {T} = subtract!(f, LinearTerm{T}(x))
+subtract!(f::AffineFunction, x::LinearTerm) = add!(f, -x)
 function subtract!(f::AffineFunction, x::AffineFunction)
     offset = length(f)
     resize!(f.linear, offset + length(x.linear))
@@ -283,13 +290,13 @@ Base.:*(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} = multiply!(zer
 
 
 # Number-like interface
-const FunctionsTypes = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
-Base.transpose(x::FunctionsTypes) = x
-Base.dot(x::FunctionsTypes, y::FunctionsTypes) = x * y
-Base.zero(::T) where {T<:FunctionsTypes} = zero(T)
-Base.one(::T) where {T<:FunctionsTypes} = one(T)
+const SimpleQPFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
+Base.transpose(x::SimpleQPFunctions) = x
+Base.dot(x::SimpleQPFunctions, y::SimpleQPFunctions) = x * y
+Base.zero(::T) where {T<:SimpleQPFunctions} = zero(T)
+Base.one(::T) where {T<:SimpleQPFunctions} = one(T)
 if VERSION >= v"0.7-"
-    Base.adjoint(x::FunctionsTypes) = x
+    Base.adjoint(x::SimpleQPFunctions) = x
 end
 
 
@@ -300,7 +307,9 @@ function vecdot!(dest, x::DenseVector, y::DenseVector)
     vecdot(x, y)
 end
 
-function vecdot!(dest::AffineFunction, x::DenseVector, y::DenseVector)
+function vecdot!(dest::AffineFunction,
+        x::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}},
+        y::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}})
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     linear = dest.linear
@@ -372,37 +381,26 @@ function vecdot!(dest::QuadraticFunction, xs::DenseVector{<:AffineFunction}, ys:
     dest
 end
 
-function vecadd!(dest::DenseVector{AffineFunction{T}}, x::DenseVector, y::DenseVector) where T
-    n = length(x)
-    @boundscheck n == length(y) || throw(DimensionMismatch())
-    resize!(dest, n)
-    @inbounds for i in eachindex(dest)
-        if isassigned(dest, i)
-            zero!(dest[i])
-        else
-            dest[i] = zero(AffineFunction{T})
+for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
+    @eval begin
+        function $vecfun!(dest::DenseVector{AffineFunction{T}}, x::DenseVector, y::DenseVector) where T
+            n = length(x)
+            @boundscheck n == length(y) || throw(DimensionMismatch())
+            resize!(dest, n)
+            @inbounds for i in eachindex(dest)
+                if isassigned(dest, i)
+                    zero!(dest[i])
+                else
+                    dest[i] = zero(AffineFunction{T})
+                end
+                $scalarfun!(dest[i], x[i], y[i])
+            end
+            dest
         end
-        add!(dest[i], x[i], y[i])
     end
-    dest
 end
 
-function vecsubtract!(dest::DenseVector{AffineFunction{T}}, x::DenseVector, y::DenseVector) where T
-    n = length(x)
-    @boundscheck n == length(y) || throw(DimensionMismatch())
-    resize!(dest, n)
-    @inbounds for i in eachindex(dest)
-        if isassigned(dest, i)
-            zero!(dest[i])
-        else
-            dest[i] = zero(AffineFunction{T})
-        end
-        subtract!(dest[i], x[i], y[i])
-    end
-    dest
-end
-
-function affine_matvecmul!(
+function matvecmul!(
         y::DenseVector{AffineFunction{T}},
         A::DenseMatrix{T},
         x::DenseVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
@@ -427,10 +425,10 @@ function affine_matvecmul!(
     y
 end
 
-function quadratic_bilinear_mul!(
+function bilinearmul!(
         dest::QuadraticFunction,
         Q::DenseMatrix,
-        x::TransposeVector{Variable, <:DenseVector{Variable}},
+        x::Union{TransposeVector{Variable, <:DenseVector{Variable}}, AdjointVector{Variable, <:DenseVector{Variable}}},
         y::DenseVector{Variable})
     @boundscheck size(Q) == (length(x), length(y)) || throw(DimensionMismatch())
     zero!(dest)
@@ -448,12 +446,12 @@ function quadratic_bilinear_mul!(
 end
 
 function Base.:*(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
-    affine_matvecmul!(similar(x, AffineFunction{T}, size(A, 1)) , A, x)
+    matvecmul!(similar(x, AffineFunction{T}, size(A, 1)) , A, x)
 end
 
 
 if VERSION >= v"0.7-"
-    # TODO
+    error("TODO: implement mul! for 0.7")
 else
     LinearAlgebra.At_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
         At_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), transpose(A), x)
@@ -461,11 +459,11 @@ else
         Ac_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), adjoint(A), x)
 
     LinearAlgebra.A_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        affine_matvecmul!(y, A, x)
+        matvecmul!(y, A, x)
     LinearAlgebra.At_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        affine_matvecmul!(y, transpose(A), x)
+        matvecmul!(y, transpose(A), x)
     LinearAlgebra.Ac_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        affine_matvecmul!(y, adjoint(A), x)
+        matvecmul!(y, adjoint(A), x)
 end
 # TODO: A_mul_B!, etc.
 
@@ -491,7 +489,5 @@ end
 function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
     vecdot!(zero(QuadraticFunction{T}), x, y)
 end
-
-# TODO: mul! in 0.7
 
 end

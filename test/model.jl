@@ -39,18 +39,18 @@ end
     rng = MersenneTwister(1)
 
     sval = Ref(1.0)
-    Q = let rng = rng
+    Q = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(eye(n), model) do Q
             Q[1, 1] = rand(rng)
             Q[2, 2] = rand(rng)
         end
     end
-    r = let rng = rng
+    r = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(zeros(n), model) do r
             rand!(rng, r)
         end
     end
-    s = let sval = sval
+    s = let sval = sval # https://github.com/JuliaLang/julia/issues/15276
         Parameter{Float64}(model) do
             sval[]
         end
@@ -129,16 +129,16 @@ end
     x = [Variable(model) for _ = 1 : n]
 
     rng = MersenneTwister(1234)
-    l = let rng = rng
+    l = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(zeros(n), model) do l
             @. l = -rand(rng)
             l
         end
     end
-    u = let rng = rng
+    u = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(u -> rand!(rng, u), zeros(n), model)
     end
-    p = let l = l, u = u, rng = rng
+    p = let l = l, u = u, rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(zeros(n), model) do p
             if rand(rng, Bool)
                 p .= 2 .* l()

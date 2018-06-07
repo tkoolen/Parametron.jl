@@ -20,12 +20,14 @@ end
 
 const LinearAlgebra = Compat.LinearAlgebra
 
+coefftype(::Type{T}) where {T<:Number} = T
 
 # Variable
 struct Variable
     index::Int
 end
 Base.hash(v::Variable, h::UInt) = hash(v.index, h)
+coefftype(::Type{Variable}) = Int
 
 
 # LinearTerm, QuadraticTerm
@@ -80,6 +82,9 @@ AffineFunction(f::AffineFunction{T}) where {T} = AffineFunction{T}(f)
 AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where {T, S} =
     AffineFunction{promote_type(T, S)}(linear, constant)
 AffineFunction(linear::Vector{LinearTerm{T}}, constant) where {T} = AffineFunction(linear, Ref(constant))
+AffineFunction(constant::T) where {T<:Number} = AffineFunction(LinearTerm{T}[], constant)
+AffineFunction(x::LinearTerm{T}) where {T} = AffineFunction([x], zero(T))
+
 coefftype(::Type{AffineFunction{T}}) where {T} = T
 
 Base.:(==)(x::AffineFunction, y::AffineFunction) = x.linear == y.linear && x.constant[] == y.constant[]
@@ -263,23 +268,25 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
         Base.$op(x::LinearTerm{T}, y::LinearTerm{T}) where {T} = AffineFunction([x, $op(y)], zero(T))
         Base.$op(x::LinearTerm, y::LinearTerm) = +(promote(x, y)...)
         Base.$op(x::Variable, y::Variable) = $op(LinearTerm{Int}(x), LinearTerm{Int}(y))
-        Base.$op(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} =
-            $fun!(AffineFunction{promote_type(T, S)}(x), y)
         Base.$op(x::LinearTerm, y::Number) = AffineFunction([x], $op(y))
         Base.$op(x::Number, y::LinearTerm) = AffineFunction([$op(y)], x)
         Base.$op(x::Variable, y::T) where {T<:Number} = $op(LinearTerm{T}(x), y)
         Base.$op(x::T, y::Variable) where {T<:Number} = $op(x, LinearTerm{T}(y))
-        Base.$op(x::AffineFunction, y::Number) = $fun!(AffineFunction(x), y)
-        Base.$op(x::Number, y::AffineFunction) = $op(y, x)
+        Base.$op(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} =
+            $fun!(AffineFunction{promote_type(T, S)}(x), y)
+        Base.$op(x::AffineFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm}} =
+            $fun!(AffineFunction{promote_type(T, coefftype(S))}(x), y)
+        Base.$op(x::T, y::AffineFunction{S}) where {T<:Union{Number, Variable, LinearTerm}, S} =
+            $fun!(AffineFunction{promote_type(coefftype(T), S)}(x), y)
 
         Base.$op(x::QuadraticTerm{T}, y::QuadraticTerm{T}) where {T} = QuadraticFunction([x, $op(y)], zero(AffineFunction{T}))
         Base.$op(x::QuadraticTerm, y::QuadraticTerm) = +(promote(x, y)...)
         Base.$op(x::QuadraticFunction{T}, y::QuadraticFunction{S}) where {T, S} =
             $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
-        Base.$op(x::QuadraticFunction{T}, y::Union{S, LinearTerm{S}, QuadraticTerm{S}, AffineFunction{S}}) where {S <: Number, T} =
-            $fun!(QuadraticFunction{promote_type(S, T)}(x), y)
-        Base.$op(x::Union{S, LinearTerm{S}, QuadraticTerm{S}, AffineFunction{S}}, y::QuadraticFunction{T}) where {S <: Number, T} =
-            $fun!(QuadraticFunction{promote_type(S, T)}(y), x)
+        Base.$op(x::QuadraticFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm, AffineFunction}} =
+            $fun!(QuadraticFunction{promote_type(T, coefftype(S))}(x), y)
+        Base.$op(x::T, y::QuadraticFunction{S}) where {T<:Union{Number, Variable, LinearTerm, AffineFunction}, S} =
+            $fun!(QuadraticFunction{promote_type(coefftype(T), S)}(x), y)
     end
 end
 
@@ -303,14 +310,14 @@ end
 
 # Array operations
 # TODO: reduce code duplication
-function vecdot!(dest, x::DenseVector, y::DenseVector)
+function vecdot!(dest, x::AbstractVector, y::AbstractVector)
     # fallback
     vecdot(x, y)
 end
 
 function vecdot!(dest::AffineFunction,
-        x::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}},
-        y::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}})
+        x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}},
+        y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}})
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     linear = dest.linear
@@ -322,8 +329,8 @@ function vecdot!(dest::AffineFunction,
 end
 
 function vecdot!(dest::QuadraticFunction,
-        x::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}},
-        y::DenseVector{<:Union{<:Number, Variable, <:LinearTerm}})
+        x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}},
+        y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}})
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     quadratic = dest.quadratic
@@ -334,7 +341,7 @@ function vecdot!(dest::QuadraticFunction,
     dest
 end
 
-function quadvecdot!(dest::QuadraticFunction, x::DenseVector, y::DenseVector)
+function quadvecdot!(dest::QuadraticFunction, x::AbstractVector, y::AbstractVector)
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     for i in eachindex(x)
@@ -343,16 +350,16 @@ function quadvecdot!(dest::QuadraticFunction, x::DenseVector, y::DenseVector)
     dest
 end
 
-vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:Union{Variable, <:LinearTerm}}) =
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::AbstractVector{<:Union{Variable, <:LinearTerm}}) =
     quadvecdot!(dest, x, y)
-vecdot!(dest::QuadraticFunction, x::DenseVector{<:Union{Variable, <:LinearTerm}}, y::DenseVector{<:AffineFunction}) =
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Union{Variable, <:LinearTerm}}, y::AbstractVector{<:AffineFunction}) =
     quadvecdot!(dest, x, y)
-vecdot!(dest::QuadraticFunction, x::DenseVector{<:AffineFunction}, y::DenseVector{<:AffineFunction}) =
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::AbstractVector{<:AffineFunction}) =
     quadvecdot!(dest, x, y)
 
 for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
     @eval begin
-        function $vecfun!(dest::DenseVector{AffineFunction{T}}, x::DenseVector, y::DenseVector) where T
+        function $vecfun!(dest::AbstractVector{AffineFunction{T}}, x::AbstractVector, y::AbstractVector) where T
             n = length(x)
             @boundscheck n == length(y) || throw(DimensionMismatch())
             resize!(dest, n)
@@ -370,9 +377,9 @@ for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
 end
 
 function matvecmul!(
-        y::DenseVector{AffineFunction{T}},
-        A::DenseMatrix{T},
-        x::DenseVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
+        y::AbstractVector{AffineFunction{T}},
+        A::AbstractMatrix{T},
+        x::AbstractVector{Variable}) where T
     rows, cols = size(A)
     @boundscheck length(y) == rows || throw(DimensionMismatch())
     @boundscheck length(x) == cols || throw(DimensionMismatch())
@@ -396,9 +403,9 @@ end
 
 function bilinearmul!(
         dest::QuadraticFunction,
-        Q::DenseMatrix,
-        x::Union{TransposeVector{Variable, <:DenseVector{Variable}}, AdjointVector{Variable, <:DenseVector{Variable}}},
-        y::DenseVector{Variable})
+        Q::AbstractMatrix,
+        x::Union{TransposeVector{Variable, <:AbstractVector{Variable}}, AdjointVector{Variable, <:AbstractVector{Variable}}},
+        y::AbstractVector{Variable})
     @boundscheck size(Q) == (length(x), length(y)) || throw(DimensionMismatch())
     zero!(dest)
     quadratic = dest.quadratic
@@ -434,7 +441,6 @@ else
     LinearAlgebra.Ac_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
         matvecmul!(y, adjoint(A), x)
 end
-# TODO: A_mul_B!, etc.
 
 function LinearAlgebra.vecdot(x::AbstractArray{T}, y::AbstractArray{Variable}) where {T<:Number}
     vecdot!(zero(AffineFunction{T}), x, y)

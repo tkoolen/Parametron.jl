@@ -1,11 +1,12 @@
 module ParameterTest
 
+include("mockmodel.jl")
+
 using Compat
 using Compat.Test
 using SimpleQP
 
 import SimpleQP: setdirty!
-import ..MockModel
 
 @testset "Parameter" begin
     # out-of-place parameter
@@ -23,7 +24,7 @@ import ..MockModel
     # in-place parameter
     A = zeros(3, 4)
     Aval = Ref(1.0)
-    f = let Aval = Aval
+    f = let Aval = Aval # https://github.com/JuliaLang/julia/issues/15276
         m -> m .= Aval[]
     end
     p2 = Parameter(f, A, model)

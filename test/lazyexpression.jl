@@ -1,13 +1,11 @@
 module LazyExpressionTest
 
-include("mockmodel.jl")
-
 using Compat
 using Compat.Test
 using SimpleQP
 using StaticArrays
 
-import SimpleQP: setdirty!
+import SimpleQP: setdirty!, MockModel
 
 @testset "basics" begin
     a = 2
@@ -108,12 +106,27 @@ end
     A = Parameter{SMatrix{3, 3, Int, 9}}(m) do
         @SMatrix ones(Int, 3, 3)
     end
-    x = Variable.(1 :3)
-    expr = @expression A * x
-    @test expr() == A() * x
+    x = Variable.(1 : 3)
+
+    expr1 = @expression A * x
+    @test expr1() == A() * x
     setdirty!(A)
-    allocs = @allocated expr()
+    allocs = @allocated expr1()
     @test allocs == 0
+    @test expr1() isa SVector{3, AffineFunction{Int}}
+
+    y = SVector{3}(x)
+    expr2 = @expression y + y
+    @test expr2() == y + y
+    allocs = @allocated expr2()
+    @test allocs == 0
+    @test expr2() isa SVector{3, AffineFunction{Int}}
+
+    expr3 = @expression y - y
+    @test expr3() == y - y
+    allocs = @allocated expr3()
+    @test allocs == 0
+    @test expr3() isa SVector{3, AffineFunction{Int}}
 end
 
 end

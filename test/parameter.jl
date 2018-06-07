@@ -1,12 +1,10 @@
 module ParameterTest
 
-include("mockmodel.jl")
-
 using Compat
 using Compat.Test
 using SimpleQP
 
-import SimpleQP: setdirty!
+import SimpleQP: setdirty!, MockModel
 
 @testset "Parameter" begin
     # out-of-place parameter

@@ -73,13 +73,6 @@ end
     # Minimize ||A x - b||^2 = x' A' A x - (2 * A' * b)' x + b' * b
     # subject to C x = d
 
-    rand_data! = function (A, b, C, d, rng)
-        rand!(rng, A)
-        rand!(rng, b)
-        rand!(rng, C)
-        rand!(rng, d)
-    end
-
     test_equality_constrained = function(A, b, C, d, x; rtol = 1e-4)
         C⁺ = pinv(C)
         Q = I - C⁺ * C
@@ -94,10 +87,14 @@ end
     model = Model(optimizer)
     x = [Variable(model) for _ = 1 : n]
 
-    A = Parameter(zeros(n, n), model)
-    b = Parameter(zeros(n), model)
-    C = Parameter(zeros(m, n), model)
-    d = Parameter(zeros(m), model)
+    rng = MersenneTwister(1234)
+    randrng! = let rng = rng
+        x -> rand!(rng, x)
+    end
+    A = Parameter(randrng!, zeros(n, n), model)
+    b = Parameter(randrng!, zeros(n), model)
+    C = Parameter(randrng!, zeros(m, n), model)
+    d = Parameter(randrng!, zeros(m), model)
 
     residual = @expression A * x - b
 
@@ -106,9 +103,7 @@ end
     @constraint(model, C * x == d)
     @test_throws ArgumentError @constraint(model, C * x ≈ d)
 
-    rng = MersenneTwister(1234)
     for i = 1 : 100
-        rand_data!(A.val[], b.val[], C.val[], d.val[], rng)
         allocs = @allocated solve!(model)
         if i > 1
             @test allocs == 0

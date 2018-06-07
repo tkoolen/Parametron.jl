@@ -1,10 +1,12 @@
 module LazyExpressionTest
 
+include("mockmodel.jl")
+
 using Compat
 using Compat.Test
 using SimpleQP
+using StaticArrays
 
-import ..MockModel
 import SimpleQP: setdirty!
 
 @testset "basics" begin
@@ -60,7 +62,7 @@ using .M
 @testset "user functions" begin
     mat = SpatialMat(rand(3, 4), rand(3, 4))
     scalar = Ref(1.0)
-    updatemat! = let scalar = scalar
+    updatemat! = let scalar = scalar # https://github.com/JuliaLang/julia/issues/15276
         mat -> (mat.angular .= scalar[]; mat.linear .= scalar[]; mat)
     end
     model = MockModel()
@@ -98,6 +100,19 @@ end
         setdirty!(m)
         wrapped()
     end
+    @test allocs == 0
+end
+
+@testset "StaticArrays" begin
+    m = MockModel()
+    A = Parameter{SMatrix{3, 3, Int, 9}}(m) do
+        @SMatrix ones(Int, 3, 3)
+    end
+    x = Variable.(1 :3)
+    expr = @expression A * x
+    @test expr() == A() * x
+    setdirty!(A)
+    allocs = @allocated expr()
     @test allocs == 0
 end
 

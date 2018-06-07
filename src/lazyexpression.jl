@@ -59,20 +59,23 @@ optimizearg(expr::LazyExpression{typeof(identity)}) = expr.args[1]
 
 optimize(expr::LazyExpression, argtypes...) = expr
 
-function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:DenseMatrix{T}}, ::Type{<:DenseVector{Variable}}) where T <: LinearAlgebra.BlasFloat
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractMatrix{T}}, ::Type{<:AbstractVector{Variable}}) where T
     A, x = expr.args
     rows, _ = size(A())
-    y = [zero(AffineFunction{Float64}) for _ = 1 : rows]
+    y = [zero(AffineFunction{T}) for _ = 1 : rows]
     LazyExpression(Functions.matvecmul!, y, A, x)
 end
 
-function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:TransposeVector{Variable}}, ::Type{<:AbstractMatrix{T}}, ::Type{<:DenseVector{Variable}}) where {T <: Number}
+function optimize(expr::LazyExpression{typeof(*)},
+        ::Type{<:TransposeVector{Variable}},
+        ::Type{<:AbstractMatrix{T}},
+        ::Type{<:AbstractVector{Variable}}) where {T}
     x, Q, y = expr.args
     dest = zero(QuadraticFunction{T})
     LazyExpression(Functions.bilinearmul!, dest, Q, x, y)
 end
 
-function optimize(expr::LazyExpression{<:Union{typeof(vecdot), typeof(dot)}}, ::Type{<:DenseVector}, ::Type{<:DenseVector})
+function optimize(expr::LazyExpression{<:Union{typeof(vecdot), typeof(dot)}}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
     x, y = expr.args
     dest = zero(expr())
     LazyExpression(Functions.vecdot!, dest, x, y)
@@ -99,7 +102,7 @@ function optimize(expr::LazyExpression{typeof(-)}, ::Type, ::Type)
     x, y = expr.args
     if ret isa AffineFunction || ret isa QuadraticFunction
         LazyExpression(Functions.subtract!, zero(typeof(ret)), x, y)
-    elseif ret isa DenseVector{<:AffineFunction}
+    elseif ret isa AbstractVector{<:AffineFunction}
         LazyExpression(Functions.vecsubtract!, similar(ret), x, y)
     else
         expr

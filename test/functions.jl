@@ -73,6 +73,16 @@ end
 
 # end
 
+@testset "matvecmul!" begin
+    A = ones(Int, 3, 4)
+    x = Variable.(1 : size(A, 2))
+    y = Vector{AffineFunction{Int}}(undef, size(A, 1))
+    Functions.matvecmul!(y, A, x)
+    @test y == fill(sum(x), size(A, 1))
+    allocs = @allocated Functions.matvecmul!(y, A, x)
+    @test allocs == 0
+end
+
 @testset "Matrix operations" begin
     x = Variable.(1 : 2)
     A1 = [1.0 2.0; 3.0 4.0]

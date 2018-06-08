@@ -62,5 +62,7 @@ using .Functions
 include("lazyexpression.jl")
 include("moi_interop.jl")
 include("model.jl")
+include("mockmodel.jl")
+include("debug.jl")
 
 end # module

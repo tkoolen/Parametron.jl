@@ -67,11 +67,31 @@ end
     @test f6(vals1) == 1 + f5(vals1)
 end
 
-# TODO:
-# @testset "QuadraticFunction" begin
-#     x = Variable.(1 : 2)
+@testset "QuadraticFunction" begin
+    x = Variable.(1 : 2)
+    vals = Dict(zip(x, [1.0, 2.0]))
+    xvals = getindex.(vals, x)
+    y = zero(QuadraticFunction{Int})
 
-# end
+    @test (x ⋅ x)(vals) == xvals ⋅ xvals
+    @test Functions.vecdot!(y, x, x)(vals) == xvals ⋅ xvals
+
+    a = [4.0, 5.0]
+    @test (x ⋅ (a .* x))(vals) == xvals ⋅ (a .* xvals)
+    @test Functions.vecdot!(y, x , (a .* x))(vals) == xvals ⋅ (a .* xvals)
+    @test ((a .* x) ⋅ x)(vals) == (a .* xvals) ⋅ xvals
+    @test Functions.vecdot!(y, (a .* x), x)(vals) == (a .* xvals) ⋅ xvals
+    @test ((a .* x) ⋅ (a .* x))(vals) == (a .* xvals) ⋅ (a .* xvals)
+    @test Functions.vecdot!(y, (a .* x), (a .* x))(vals) == (a .* xvals) ⋅ (a .* xvals)
+
+    b = [6.0, 7.0]
+    @test (x ⋅ (a .* x .+ b))(vals) == xvals ⋅ (a .* xvals .+ b)
+    @test Functions.vecdot!(y, x, (a .* x .+ b))(vals) == xvals ⋅ (a .* xvals .+ b)
+    @test ((a .* x .+ b) ⋅ x)(vals) == xvals ⋅ (a .* xvals .+ b)
+    @test Functions.vecdot!(y, (a .* x .+ b), x)(vals) == xvals ⋅ (a .* xvals .+ b)
+    @test ((b .* x .+ a) ⋅ (a .* x .+ b))(vals) == (b .* xvals .+ a) ⋅ (a .* xvals .+ b)
+    @test Functions.vecdot!(y, b .* x .+ a, a .* x .+ b)(vals) == (b .* xvals .+ a) ⋅ (a .* xvals .+ b)
+end
 
 @testset "matvecmul!" begin
     A = ones(Int, 3, 4)

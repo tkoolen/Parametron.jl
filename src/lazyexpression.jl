@@ -4,7 +4,7 @@ struct LazyExpression{F, A}
     LazyExpression(f::F, args...) where {F} = new{F, typeof(args)}(f, args)
 end
 
-Base.show(io::IO, expr::LazyExpression) = print(io, "LazyExpression{…}($(string(expr.f)), …)")
+Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression{$F, …}(…)")
 
 
 # Evaluation
@@ -21,7 +21,7 @@ end
 
 # expression macro
 macro expression(expr)
-    expr = postwalk(expr) do x
+    postwalk(expr) do x
         if @capture(x, f_(args__))
             :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
@@ -35,10 +35,9 @@ macro expression(expr)
                     """
                 return :(throw(ArgumentError($msg)))
             end
-            x
+            esc(x)
         end
     end
-    esc(expr)
 end
 
 
@@ -61,9 +60,8 @@ optimize(expr::LazyExpression, argtypes...) = expr
 
 function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractMatrix{T}}, ::Type{<:AbstractVector{Variable}}) where T
     A, x = expr.args
-    rows, _ = size(A())
-    y = [zero(AffineFunction{T}) for _ = 1 : rows]
-    LazyExpression(Functions.matvecmul!, y, A, x)
+    dest = deepcopy(expr())
+    LazyExpression(Functions.matvecmul!, dest, A, x)
 end
 
 function optimize(expr::LazyExpression{typeof(*)},
@@ -77,7 +75,7 @@ end
 
 function optimize(expr::LazyExpression{<:Union{typeof(vecdot), typeof(dot)}}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
     x, y = expr.args
-    dest = zero(expr())
+    dest = deepcopy(expr())
     LazyExpression(Functions.vecdot!, dest, x, y)
 end
 
@@ -91,7 +89,7 @@ function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type)
     if ret isa AffineFunction || ret isa QuadraticFunction
         LazyExpression(Functions.add!, zero(typeof(ret)), x, y)
     elseif ret isa Vector{<:AffineFunction}
-        LazyExpression(Functions.vecadd!, similar(ret), x, y)
+        LazyExpression(Functions.vecadd!, deepcopy(ret), x, y)
     else
         expr
     end
@@ -103,7 +101,7 @@ function optimize(expr::LazyExpression{typeof(-)}, ::Type, ::Type)
     if ret isa AffineFunction || ret isa QuadraticFunction
         LazyExpression(Functions.subtract!, zero(typeof(ret)), x, y)
     elseif ret isa AbstractVector{<:AffineFunction}
-        LazyExpression(Functions.vecsubtract!, similar(ret), x, y)
+        LazyExpression(Functions.vecsubtract!, deepcopy(ret), x, y)
     else
         expr
     end

@@ -11,12 +11,10 @@ struct Parameter{T, F, InPlace}
     # in-place
     Parameter(f::F, val::T, model) where {T, F} = addparameter!(model, new{T, F, true}(Ref(true), f, Base.RefValue(val)))
 end
-
-# externally modified
-Parameter(val, model) = Parameter(identity, val, model)
+Parameter(f, model) = Parameter{typeof(f())}(f, model)
 
 isinplace(::Type{Parameter{T, F, InPlace}}) where {T, F, InPlace} = InPlace
-Base.show(io::IO, param::Parameter{T, F, InPlace}) where {T, F, InPlace} = print(io, "Parameter{$T, $F, $InPlace}(…)")
+Base.show(io::IO, param::Parameter{T, F, InPlace}) where {T, F, InPlace} = print(io, "Parameter{$T, …}(…)")
 
 function (parameter::Parameter)()
     if parameter.dirty[]

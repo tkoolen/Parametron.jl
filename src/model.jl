@@ -179,12 +179,12 @@ macro constraint(model, expr)
         return :(throw(ArgumentError("Relation not recognized")))
     end
     quote
-        $addcon($model, @expression $lhs - $rhs)
-    end |> esc
+        $addcon($(esc(model)), @expression $(esc(:($lhs - $rhs))))
+    end
 end
 
 macro objective(model, sense, expr)
     quote
-        setobjective!($model, $sense, @expression $expr)
-    end |> esc
+        setobjective!($(esc(model)), $(esc(sense)), @expression $(esc(expr)))
+    end
 end

@@ -16,16 +16,15 @@ Parameter(f, model) = Parameter{typeof(f())}(f, model)
 isinplace(::Type{Parameter{T, F, InPlace}}) where {T, F, InPlace} = InPlace
 Base.show(io::IO, param::Parameter{T, F, InPlace}) where {T, F, InPlace} = print(io, "Parameter{$T, …}(…)")
 
-function (parameter::Parameter)()
+function (parameter::Parameter{T})() where {T}
     if parameter.dirty[]
-        if isinplace(typeof(parameter))
-            parameter.f(parameter.val[])
-        else
-            parameter.val[] = parameter.f()
-        end
+        update!(parameter)
         parameter.dirty[] = false
     end
     parameter.val[]
 end
+
+update!(parameter::Parameter{T, F, true}) where {T, F} = (parameter.f(parameter.val[]); nothing)
+update!(parameter::Parameter{T, F, false}) where {T, F} = (parameter.val[] = parameter.f()::T; nothing)
 
 setdirty!(parameter::Parameter) = (parameter.dirty[] = true; nothing)

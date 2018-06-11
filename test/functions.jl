@@ -103,6 +103,42 @@ end
     @test allocs == 0
 end
 
+@testset "mul!" begin
+    x = map(Variable, 1 : 3)
+    aff = [1, 2, 3]' * x + 4
+    quad = x[1]^2 + 2 * x[1] * x[3] + 3 * x[2] + 4
+
+    @testset "affine" begin
+        dest = zero(aff)
+        for i = 1 : 2
+            Functions.mul!(dest, aff, 2)
+            @test dest == 2 * x[1] + 4 * x[2] + 6 * x[3] + 8
+
+            Functions.mul!(dest, 3, aff)
+            @test dest == 3 * x[1] + 6 * x[2] + 9 * x[3] + 12
+        end
+    end
+    @testset "quadratic" begin
+        dest = zero(quad)
+        for i = 1 : 2
+            Functions.mul!(dest, quad, 2)
+            @test dest == 2 * x[1]^2 + 4 * x[1] * x[3] + 6 * x[2] + 8
+
+            Functions.mul!(dest, 2, quad)
+            @test dest == 2 * x[1]^2 + 4 * x[1] * x[3] + 6 * x[2] + 8
+
+            Functions.mul!(dest, aff, x[1])
+            @test dest == [1, 2, 3]' * (x .* x[1]) + 4 * x[1]
+
+            Functions.mul!(dest, x[1], aff)
+            @test dest == [1, 2, 3]' * (x .* x[1]) + 4 * x[1]
+
+            Functions.mul!(dest, aff, aff)
+            @test dest == ([1, 2, 3]' * x + 4)^2
+        end
+    end
+end
+
 @testset "Matrix operations" begin
     x = Variable.(1 : 2)
     A1 = [1.0 2.0; 3.0 4.0]

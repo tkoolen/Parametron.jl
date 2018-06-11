@@ -166,4 +166,21 @@ end
     @test String(take!(buf)) == "1 * x1 * x1 + 1 * x2 * x2 + 0"
 end
 
+@testset "concatenation" begin
+    v1 = [1., 2]
+    v2 = [3., 4]
+    v3 = [5., 6]
+    @test Functions.vcat!(zeros(2), v1) == v1
+    @test Functions.vcat!(zeros(4), v1, v2) == vcat(v1, v2)
+    @test Functions.vcat!(zeros(6), v1, v2, v3) == vcat(v1, v2, v3)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(1), v1)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(3), v1)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(3), v1, v2)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(5), v1, v2)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(5), v1, v2, v3)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(7), v1, v2, v3)
+
+    @test Functions.vcat!(zeros(7), 1, [2, 3], [4, 5, 6], [7]) == [1,2,3,4,5,6,7]
+end
+
 end # module

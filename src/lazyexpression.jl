@@ -21,7 +21,10 @@ end
 
 # expression macro
 macro expression(expr)
-    postwalk(expr) do x
+    # We call expand(expr) to lower the code and make some useful conversions like:
+    #   * [x; y] turns from Expr(:vcat, :x, :y) into Expr(:call, :vcat, :x, :y)
+    #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
+    postwalk(expand(expr)) do x
         if @capture(x, f_(args__))
             :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
@@ -121,6 +124,12 @@ function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Union{Number, Variab
     LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
 end
 
+function optimize(expr::LazyExpression{typeof(vcat)}, T::Type{<:Union{AbstractVector, Number}}...)
+    result = expr()
+    dest = similar(result)
+    dest .= result
+    LazyExpression(Functions.vcat!, dest, expr.args...)
+end
 
 # Wrapping
 struct WrappedExpression{T}

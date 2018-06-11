@@ -141,4 +141,79 @@ end
     @test allocs == 0
 end
 
+@testset "vcat optimization" begin
+    model = MockModel()
+    x = Parameter(zeros(2), model) do x
+        x[1] = 1
+        x[2] = 2
+    end
+    y = Parameter(zeros(2), model) do y
+        y[1] = 3
+        y[2] = 4
+    end
+    v1 = @expression vcat(x, y)
+    @test v1() == [1,2,3,4]
+    setdirty!(model)
+    @test (@allocated begin
+        setdirty!(model)
+        v1()
+    end) == 0
+
+    # Make sure we expand vcat expressions
+    v2 = @expression [x; y]
+    @test v2() == [1,2,3,4]
+    @test (@allocated begin
+        setdirty!(model)
+        v2()
+    end) == 0
+
+    # Make sure static arrays still work
+    z = Parameter{SVector{3, Float64}}(model) do
+        SVector(3., 2., 1.)
+    end
+    v3 = @expression [z; z]
+    @test v3() == [3, 2, 1, 3, 2, 1]
+    @test (@allocated begin
+        setdirty!(model)
+        v3()
+    end) == 0
+
+    # Other numbers of arguments
+    v4 = @expression vcat(x)
+    @test v4() == [1, 2]
+    @test (@allocated begin
+        setdirty!(model)
+        v4()
+    end) == 0
+
+    v5 = @expression vcat(x, y, x)
+    @test v5() == [1, 2, 3, 4, 1, 2]
+    @test (@allocated begin
+        setdirty!(model)
+        v5()
+    end) == 0
+
+    # Mixed arguments
+    v6 = @expression vcat(x, 3)
+    @test v6() == [1, 2, 3]
+    @test (@allocated begin
+        setdirty!(model)
+        v6()
+    end) == 0
+
+    v7 = @expression vcat(x, z)
+    @test v7() == [1, 2, 3, 2, 1]
+    @test (@allocated begin
+        setdirty!(model)
+        v7()
+    end) == 0
+
+    # This shouldn't allocate memory, but it does. If that becomes a problem,
+    # we can revisit. 
+    @test (@expression vcat(x, 3, y, z))() == [1, 2, 3, 3, 4, 3, 2, 1]
+
+    # Generic fallbacks that allocate memory but should still give the right answer
+    @test (@expression vcat(x', y'))() == [1 2; 3 4]
+end
+
 end

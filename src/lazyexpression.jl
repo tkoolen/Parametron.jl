@@ -85,11 +85,10 @@ end
 
 function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type)
     ret = expr()
-    x, y = expr.args
     if ret isa AffineFunction || ret isa QuadraticFunction
-        LazyExpression(Functions.add!, zero(typeof(ret)), x, y)
+        LazyExpression(Functions.add!, zero(typeof(ret)), expr.args...)
     elseif ret isa Vector{<:AffineFunction}
-        LazyExpression(Functions.vecadd!, deepcopy(ret), x, y)
+        LazyExpression(Functions.vecadd!, deepcopy(ret), expr.args...)
     else
         expr
     end
@@ -97,14 +96,29 @@ end
 
 function optimize(expr::LazyExpression{typeof(-)}, ::Type, ::Type)
     ret = expr()
-    x, y = expr.args
     if ret isa AffineFunction || ret isa QuadraticFunction
-        LazyExpression(Functions.subtract!, zero(typeof(ret)), x, y)
+        LazyExpression(Functions.subtract!, zero(typeof(ret)), expr.args...)
     elseif ret isa AbstractVector{<:AffineFunction}
-        LazyExpression(Functions.vecsubtract!, deepcopy(ret), x, y)
+        LazyExpression(Functions.vecsubtract!, deepcopy(ret), expr.args...)
     else
         expr
     end
+end
+
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AffineFunction}, ::Type{<:Union{Number, Variable, LinearTerm}})
+    LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
+end
+
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:QuadraticFunction}, ::Type{<:Union{Number, Variable}})
+    LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
+end
+
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Union{Number, Variable, LinearTerm}}, ::Type{<:AffineFunction})
+    LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
+end
+
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Union{Number, Variable}}, ::Type{<:QuadraticFunction})
+    LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
 end
 
 

@@ -220,6 +220,28 @@ subtract!(dest, x, y) = (copyto!(dest, x); subtract!(dest, y); dest)
 
 
 # muladd!
+function muladd!(dest::AffineFunction, x::AffineFunction, y::Number)
+    offset = length(dest.linear)
+    resize!(dest.linear, offset + length(x.linear))
+    @inbounds for i in eachindex(x.linear)
+        dest.linear[offset + i] = x.linear[i] * y
+    end
+    dest.constant[] += x.constant[] * y
+    dest
+end
+muladd!(dest::AffineFunction, x::Number, y::AffineFunction) = muladd!(dest, y, x)
+
+function muladd!(dest::QuadraticFunction, x::QuadraticFunction, y::Number)
+    offset = length(dest.quadratic)
+    resize!(dest.quadratic, offset + length(x.quadratic))
+    @inbounds for i in eachindex(x.quadratic)
+        dest.quadratic[offset + i] = x.quadratic[i] * y
+    end
+    muladd!(dest.affine, x.affine, y)
+    dest
+end
+muladd!(dest::QuadraticFunction, x::Number, y::QuadraticFunction) = muladd!(dest, y, x)
+
 function muladd!(dest::QuadraticFunction, x::AffineFunction, y::Union{Variable, <:LinearTerm})
     offset = length(dest.quadratic)
     resize!(dest.quadratic, offset + length(x.linear))
@@ -229,7 +251,6 @@ function muladd!(dest::QuadraticFunction, x::AffineFunction, y::Union{Variable, 
     add!(dest.affine, x.constant[] * y)
     dest
 end
-
 muladd!(dest::QuadraticFunction, x::Union{Variable, <:LinearTerm}, y::AffineFunction) = muladd!(dest, y, x)
 
 function muladd!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction)
@@ -262,6 +283,8 @@ function muladd!(dest::QuadraticFunction, x::AffineFunction, y::AffineFunction)
     dest
 end
 
+mul!(dest::Union{<:AffineFunction, <:QuadraticFunction}, x, y) = (zero!(dest); muladd!(dest, x, y))
+
 # Operators
 for (op, fun!) in [(:+, add!), (:-, subtract!)]
     @eval begin
@@ -283,18 +306,22 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
         Base.$op(x::QuadraticTerm, y::QuadraticTerm) = +(promote(x, y)...)
         Base.$op(x::QuadraticFunction{T}, y::QuadraticFunction{S}) where {T, S} =
             $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
-        Base.$op(x::QuadraticFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm, AffineFunction}} =
+        Base.$op(x::QuadraticFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm, QuadraticTerm, AffineFunction}} =
             $fun!(QuadraticFunction{promote_type(T, coefftype(S))}(x), y)
-        Base.$op(x::T, y::QuadraticFunction{S}) where {T<:Union{Number, Variable, LinearTerm, AffineFunction}, S} =
+        Base.$op(x::T, y::QuadraticFunction{S}) where {T<:Union{Number, Variable, LinearTerm, QuadraticTerm, AffineFunction}, S} =
             $fun!(QuadraticFunction{promote_type(coefftype(T), S)}(x), y)
     end
 end
 
 Base.:*(x::AffineFunction{T}, y::Variable) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
-Base.:*(y::Variable, x::AffineFunction{T}) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
-Base.:*(x::AffineFunction{T}, y::Union{AffineFunction{S}, LinearTerm{S}}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
-Base.:*(y::Union{AffineFunction{S}, LinearTerm{S}}, x::AffineFunction{T}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::Variable, y::AffineFunction{T}) where {T} = muladd!(zero(QuadraticFunction{T}), x, y)
+Base.:*(x::AffineFunction{T}, y::Union{LinearTerm{S}, AffineFunction{S}}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::Union{LinearTerm{S}, AffineFunction{S}}, y::AffineFunction{T}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
 Base.:*(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::AffineFunction{T}, y::S) where {T, S<:Number} = muladd!(zero(AffineFunction{promote_type(T, S)}), x, y)
+Base.:*(x::S, y::AffineFunction{T}) where {T, S<:Number} = muladd!(zero(AffineFunction{promote_type(T, S)}), x, y)
+Base.:*(x::QuadraticFunction{T}, y::S) where {T, S<:Number} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
+Base.:*(x::S, y::QuadraticFunction{T}) where {T, S<:Number} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
 
 
 # Number-like interface

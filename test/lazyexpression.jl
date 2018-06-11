@@ -129,4 +129,16 @@ end
     @test expr3() isa SVector{3, AffineFunction{Int}}
 end
 
+@testset "mul! optimization" begin
+    m = MockModel()
+    weight = Parameter(() -> 3, m)
+    x = Variable.(1 : 3)
+    expr = @expression weight * (x ⋅ x)
+    vals = Dict(zip(x, [1, 2, 3]))
+    xvals = getindex.(vals, x)
+    @test expr()(vals) == 3 * xvals ⋅ xvals
+    allocs = @allocated expr()
+    @test allocs == 0
+end
+
 end

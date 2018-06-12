@@ -142,78 +142,64 @@ end
 end
 
 @testset "vcat optimization" begin
-    model = MockModel()
-    x = Parameter(zeros(2), model) do x
-        x[1] = 1
-        x[2] = 2
-    end
-    y = Parameter(zeros(2), model) do y
-        y[1] = 3
-        y[2] = 4
-    end
-    v1 = @expression vcat(x, y)
-    @test v1() == [1,2,3,4]
-    setdirty!(model)
+    srand(42)
+    m = MockModel()
+    A = Parameter(rand!, zeros(3, 4), m)
+    B = Parameter(rand!, zeros(3, 3), m)
+    x = Variable.(1 : 4)
+    y = Variable.(5 : 7)
+    f1 = @expression A * x
+    f2 = @expression B * y
+
+    v1 = @expression vcat(f1, f2)
+    @test v1() == vcat(f1(), f2())
+    setdirty!(m)
     @test (@allocated begin
-        setdirty!(model)
+        setdirty!(m)
         v1()
     end) == 0
 
     # Make sure we expand vcat expressions
-    v2 = @expression [x; y]
-    @test v2() == [1,2,3,4]
+    v2 = @expression [f1; f2]
+    @test v2() == vcat(f1(), f2())
     @test (@allocated begin
-        setdirty!(model)
+        setdirty!(m)
         v2()
     end) == 0
 
     # Make sure static arrays still work
-    z = Parameter{SVector{3, Float64}}(model) do
-        SVector(3., 2., 1.)
+    C = Parameter{SMatrix{2, 2, Int, 4}}(m) do
+        @SMatrix [1 2; 3 4]
     end
-    v3 = @expression [z; z]
-    @test v3() == [3, 2, 1, 3, 2, 1]
+    z = SVector(Variable(8), Variable(9))
+    f3 = @expression C * z
+    v3 = @expression [f3; f3]
+    @test v3() == vcat(f3(), f3())
+    @test v3() isa SVector{4, AffineFunction{Int}}
     @test (@allocated begin
-        setdirty!(model)
+        setdirty!(m)
         v3()
     end) == 0
 
     # Other numbers of arguments
-    v4 = @expression vcat(x)
-    @test v4() == [1, 2]
+    v4 = @expression vcat(f3)
+    @test v4() == f3()
     @test (@allocated begin
-        setdirty!(model)
+        setdirty!(m)
         v4()
     end) == 0
 
-    v5 = @expression vcat(x, y, x)
-    @test v5() == [1, 2, 3, 4, 1, 2]
+    v5 = @expression vcat(f1, f2, f3)
+    @test v5() == vcat(f1(), f2(), f3())
     @test (@allocated begin
-        setdirty!(model)
+        setdirty!(m)
         v5()
     end) == 0
 
-    # Mixed arguments
-    v6 = @expression vcat(x, 3)
-    @test v6() == [1, 2, 3]
-    @test (@allocated begin
-        setdirty!(model)
-        v6()
-    end) == 0
-
-    v7 = @expression vcat(x, z)
-    @test v7() == [1, 2, 3, 2, 1]
-    @test (@allocated begin
-        setdirty!(model)
-        v7()
-    end) == 0
-
-    # This shouldn't allocate memory, but it does. If that becomes a problem,
-    # we can revisit. 
-    @test (@expression vcat(x, 3, y, z))() == [1, 2, 3, 3, 4, 3, 2, 1]
-
     # Generic fallbacks that allocate memory but should still give the right answer
-    @test (@expression vcat(x', y'))() == [1 2; 3 4]
+    @test (@expression vcat(x, y))() == vcat(x, y)
+    @test (@expression vcat(f1, 3))() == vcat(f1(), 3)
+    @test (@expression vcat(x', [1, 2, 3, 4]'))() == vcat(x', [1, 2, 3, 4]')
 end
 
 end

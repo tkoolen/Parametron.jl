@@ -493,50 +493,36 @@ function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{Linea
 end
 
 # vcat
-function _vcat!(dest, i::Integer, arg::T, args::Vararg{<:Any, N}) where {N, T}
-    @boundscheck i >= firstindex(dest) && (i + length(arg) - 1) <= lastindex(dest) || throw(DimensionMismatch())
-    for x in arg
-        @inbounds dest[i] = x
-        i += 1
-    end
-    _vcat!(dest, i, args...)
-end
-function _vcat!(dest, i::Integer)
+function _vcat!(dest::AbstractVector{<:AffineFunction},
+                i::Integer)
     @boundscheck i == lastindex(dest) + 1 || throw(DimensionMismatch())
     dest
 end
 
-# Base.vcat accepts numbers and vectors alike, and we can too!
-const AbstractVectorOrNumber = Union{AbstractVector, Number}
-
-function vcat!(dest::AbstractVector, args::AbstractVectorOrNumber...)
-    _vcat!(dest, 1, args...)
+function _vcat!(dest::AbstractVector{<:AffineFunction},
+                i::Integer,
+                source::AbstractVector{<:AffineFunction},
+                remaining::Vararg{<:AbstractVector{<:AffineFunction}, N}) where {N}
+    @boundscheck i >= firstindex(dest) && (i + length(source) - 1) <= lastindex(dest) || throw(DimensionMismatch())
+    @inbounds for s in source
+        copyto!(dest[i], s)
+        i += 1
+    end
+    _vcat!(dest, i, remaining...)
 end
 
-if VERSION <= v"0.7-"  
-    # The above Vararg versions are fast on v0.7 but not on v0.6, so we create a
-    # specialized 2-argument version of vcat! which is faster on v0.6. 
-    function vcat!(dest::AbstractVector, x1::AbstractVectorOrNumber, x2::AbstractVectorOrNumber)
-        @boundscheck length(dest) == length(x1) + length(x2) || throw(DimensionMismatch())
-        i = first(LinearIndices(dest))
-        for xi1 in x1
-            dest[i] = xi1
-            i += 1
+function vcat!(y::AbstractVector{<:AffineFunction},
+               args::Vararg{<:AbstractVector{<:AffineFunction}, N}) where N
+    @inbounds for i in eachindex(y)
+        if isassigned(y, i)
+            zero!(y[i])
+        else
+            y[i] = zero(AffineFunction{T})
         end
-        for xi2 in x2
-            dest[i] = xi2
-            i += 1
-        end
-        dest
     end
-
-    function vcat!(dest::AbstractVector, x::AbstractVectorOrNumber)
-        dest .= x
-        dest
-    end
-
+    _vcat!(y, 1, args...)
+    y
 end
-
 
 
 end

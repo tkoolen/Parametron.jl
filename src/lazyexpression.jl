@@ -124,10 +124,8 @@ function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Union{Number, Variab
     LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
 end
 
-function optimize(expr::LazyExpression{typeof(vcat)}, T::Type{<:Union{AbstractVector, Number}}...)
-    result = expr()
-    dest = similar(result)
-    dest .= result
+function optimize(expr::LazyExpression{typeof(vcat)}, T::Type{<:AbstractVector{<:AffineFunction}}...)
+    dest = deepcopy(expr())
     LazyExpression(Functions.vcat!, dest, expr.args...)
 end
 

@@ -391,11 +391,7 @@ for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
             @boundscheck n == length(y) || throw(DimensionMismatch())
             resize!(dest, n)
             @inbounds for i in eachindex(dest)
-                if isassigned(dest, i)
-                    zero!(dest[i])
-                else
-                    dest[i] = zero(AffineFunction{T})
-                end
+                zero!(dest[i])
                 $scalarfun!(dest[i], x[i], y[i])
             end
             dest
@@ -491,5 +487,34 @@ end
 function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
     vecdot!(zero(QuadraticFunction{T}), x, y)
 end
+
+# vcat
+function _vcat!(dest::AbstractVector{<:AffineFunction},
+                i::Integer)
+    @boundscheck i == lastindex(dest) + 1 || throw(DimensionMismatch())
+    dest
+end
+
+function _vcat!(dest::AbstractVector{<:AffineFunction},
+                i::Integer,
+                source::AbstractVector{<:AffineFunction},
+                remaining::Vararg{<:AbstractVector{<:AffineFunction}, N}) where {N}
+    @boundscheck i >= firstindex(dest) && (i + length(source) - 1) <= lastindex(dest) || throw(DimensionMismatch())
+    @inbounds for s in source
+        copyto!(dest[i], s)
+        i += 1
+    end
+    _vcat!(dest, i, remaining...)
+end
+
+function vcat!(y::AbstractVector{<:AffineFunction},
+               args::Vararg{<:AbstractVector{<:AffineFunction}, N}) where N
+    @inbounds for i in eachindex(y)
+        zero!(y[i])
+    end
+    _vcat!(y, 1, args...)
+    y
+end
+
 
 end

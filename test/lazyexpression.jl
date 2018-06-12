@@ -141,4 +141,65 @@ end
     @test allocs == 0
 end
 
+@testset "vcat optimization" begin
+    srand(42)
+    m = MockModel()
+    A = Parameter(rand!, zeros(3, 4), m)
+    B = Parameter(rand!, zeros(3, 3), m)
+    x = Variable.(1 : 4)
+    y = Variable.(5 : 7)
+    f1 = @expression A * x
+    f2 = @expression B * y
+
+    v1 = @expression vcat(f1, f2)
+    @test v1() == vcat(f1(), f2())
+    setdirty!(m)
+    @test (@allocated begin
+        setdirty!(m)
+        v1()
+    end) == 0
+
+    # Make sure we expand vcat expressions
+    v2 = @expression [f1; f2]
+    @test v2() == vcat(f1(), f2())
+    @test (@allocated begin
+        setdirty!(m)
+        v2()
+    end) == 0
+
+    # Make sure static arrays still work
+    C = Parameter{SMatrix{2, 2, Int, 4}}(m) do
+        @SMatrix [1 2; 3 4]
+    end
+    z = SVector(Variable(8), Variable(9))
+    f3 = @expression C * z
+    v3 = @expression [f3; f3]
+    @test v3() == vcat(f3(), f3())
+    @test v3() isa SVector{4, AffineFunction{Int}}
+    @test (@allocated begin
+        setdirty!(m)
+        v3()
+    end) == 0
+
+    # Other numbers of arguments
+    v4 = @expression vcat(f3)
+    @test v4() == f3()
+    @test (@allocated begin
+        setdirty!(m)
+        v4()
+    end) == 0
+
+    v5 = @expression vcat(f1, f2, f3)
+    @test v5() == vcat(f1(), f2(), f3())
+    @test (@allocated begin
+        setdirty!(m)
+        v5()
+    end) == 0
+
+    # Generic fallbacks that allocate memory but should still give the right answer
+    @test (@expression vcat(x, y))() == vcat(x, y)
+    @test (@expression vcat(f1, 3))() == vcat(f1(), 3)
+    @test (@expression vcat(x', [1, 2, 3, 4]'))() == vcat(x', [1, 2, 3, 4]')
+end
+
 end

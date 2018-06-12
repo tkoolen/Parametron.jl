@@ -2,6 +2,7 @@ module FunctionsTest
 
 using Compat
 using Compat.Test
+using StaticArrays: @SVector
 using SimpleQP
 using SimpleQP.Functions
 
@@ -164,6 +165,26 @@ end
     buf = IOBuffer()
     show(buf, h)
     @test String(take!(buf)) == "1 * x1 * x1 + 1 * x2 * x2 + 0"
+end
+
+@testset "concatenation" begin
+    x = Variable(1)
+    y = Variable(2)
+    f1 = 3x + 10
+    f2 = 0.1 * y - 0.5
+    f3 = x + y
+    v1 = @SVector [f1, f2]
+    v2 = @SVector [f2, f3]
+    v3 = [f3, f2, f1]
+    @test Functions.vcat!(deepcopy(v1), v1) == v1
+    @test Functions.vcat!(deepcopy(vcat(v1, v2)), v1, v2) == vcat(v1, v2)
+    @test Functions.vcat!(deepcopy(vcat(v1, v2, v3)), v1, v2, v3) == vcat(v1, v2, v3)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 1), v1)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 3), v1)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 3), v1, v2)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 5), v1, v2)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 6), v1, v2, v3)
+    @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 8), v1, v2, v3)
 end
 
 end # module

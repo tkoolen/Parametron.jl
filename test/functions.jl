@@ -66,6 +66,12 @@ end
 
     f6 = 1 + f5
     @test f6(vals1) == 1 + f5(vals1)
+
+    f7 = f6 - f4
+    @test f7(vals1) == f6(vals1) - f4(vals1)
+
+    f8 = f7 - LinearTerm(4, y)
+    @test f8(vals1) == f7(vals1) - 4 * vals1[y]
 end
 
 @testset "QuadraticFunction" begin
@@ -92,6 +98,19 @@ end
     @test Functions.vecdot!(y, (a .* x .+ b), x)(vals) == xvals ⋅ (a .* xvals .+ b)
     @test ((b .* x .+ a) ⋅ (a .* x .+ b))(vals) == (b .* xvals .+ a) ⋅ (a .* xvals .+ b)
     @test Functions.vecdot!(y, b .* x .+ a, a .* x .+ b)(vals) == (b .* xvals .+ a) ⋅ (a .* xvals .+ b)
+
+    f1 = x[1]^2 + 2 * x[1] * x[2] + 3 * x[2] + 4
+    f2 = x[2]^2 - 2 * x[1] + 3 * x[2] - 1
+    @test (f1 - f2)(vals) == f1(vals) - f2(vals)
+
+    f3 = (3 * x[1]^2) - x[2]
+    @test f3(vals) == 3 * xvals[1]^2 - xvals[2]
+
+    f4 = (3 * x[1] * x[2]) + (0.5 * x[2])
+    @test f4(vals) == 3 * xvals[1] * xvals[2] + 0.5 * xvals[2]
+
+    f5 = (0.5 * x[2]) + (3 * x[1] * x[2])
+    @test f5(vals) == 3 * xvals[1] * xvals[2] + 0.5 * xvals[2]
 end
 
 @testset "matvecmul!" begin

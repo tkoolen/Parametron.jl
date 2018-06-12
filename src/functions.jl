@@ -121,8 +121,17 @@ struct QuadraticFunction{T}
     quadratic::Vector{QuadraticTerm{T}}
     affine::AffineFunction{T}
 end
-QuadraticFunction{T}(f::QuadraticFunction) where {T} = QuadraticFunction(copyto!(Vector{QuadraticTerm{T}}(undef, length(f.quadratic)), f.quadratic), AffineFunction{T}(f.affine))
+
+QuadraticFunction{T}(f::QuadraticFunction) where {T} =
+    QuadraticFunction(copyto!(Vector{QuadraticTerm{T}}(undef, length(f.quadratic)), f.quadratic), AffineFunction{T}(f.affine))
 QuadraticFunction(f::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(f)
+QuadraticFunction(quadratic::Vector{QuadraticTerm{T}}, affine::AffineFunction{S}) where {T, S} =
+    QuadraticFunction{promote_type(T, S)}(quadratic, affine)
+QuadraticFunction(constant::T) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(constant))
+QuadraticFunction(x::LinearTerm{T}) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(x))
+QuadraticFunction(x::QuadraticTerm{T}) where {T} = QuadraticFunction([x], zero(AffineFunction{T}))
+
+
 coefftype(::Type{QuadraticFunction{T}}) where {T} = T
 
 Base.:(==)(x::QuadraticFunction, y::QuadraticFunction) = x.quadratic == y.quadratic && x.affine == y.affine
@@ -192,7 +201,7 @@ subtract!(f::AffineFunction, x::Number) = (f.constant[] -= x; f)
 subtract!(f::AffineFunction{T}, x::Variable) where {T} = subtract!(f, LinearTerm{T}(x))
 subtract!(f::AffineFunction, x::LinearTerm) = add!(f, -x)
 function subtract!(f::AffineFunction, x::AffineFunction)
-    offset = length(f)
+    offset = length(f.linear)
     resize!(f.linear, offset + length(x.linear))
     @inbounds for i in eachindex(x.linear)
         f.linear[offset + i] = -x.linear[i]
@@ -207,7 +216,7 @@ subtract!(f::QuadraticFunction, x::Variable) = (subtract!(f.affine, x); f)
 subtract!(f::QuadraticFunction, x::AffineFunction) = (subtract!(f.affine, x); f)
 subtract!(f::QuadraticFunction, x::QuadraticTerm) = add!(f, -x)
 function subtract!(f::QuadraticFunction, x::QuadraticFunction)
-    offset = length(f)
+    offset = length(f.quadratic)
     resize!(f.quadratic, offset + length(x.quadratic))
     @inbounds for i in eachindex(x.quadratic)
         f.quadratic[offset + i] = -x.quadratic[i]
@@ -304,6 +313,12 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
 
         Base.$op(x::QuadraticTerm{T}, y::QuadraticTerm{T}) where {T} = QuadraticFunction([x, $op(y)], zero(AffineFunction{T}))
         Base.$op(x::QuadraticTerm, y::QuadraticTerm) = +(promote(x, y)...)
+        Base.$op(x::QuadraticTerm{T}, y::LinearTerm{T}) where {T} = $fun!(QuadraticFunction(x), y)
+        Base.$op(x::LinearTerm{T}, y::QuadraticTerm{T}) where {T} = $fun!(QuadraticFunction(x), y)
+        Base.$op(x::LinearTerm{T}, y::QuadraticTerm{S}) where {T, S} = (R = promote_type(T, S); $op(LinearTerm{R}(x), QuadraticTerm{R}(y)))
+        Base.$op(x::QuadraticTerm{T}, y::LinearTerm{S}) where {T, S} = (R = promote_type(T, S); $op(QuadraticTerm{R}(x), LinearTerm{R}(y)))
+        Base.$op(x::QuadraticTerm{T}, y::Variable) where {T} = $op(x, LinearTerm{T}(y))
+        Base.$op(x::Variable, y::QuadraticTerm{T}) where {T} = $op(LinearTerm{T}(x), y)
         Base.$op(x::QuadraticFunction{T}, y::QuadraticFunction{S}) where {T, S} =
             $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
         Base.$op(x::QuadraticFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm, QuadraticTerm, AffineFunction}} =

@@ -391,11 +391,7 @@ for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
             @boundscheck n == length(y) || throw(DimensionMismatch())
             resize!(dest, n)
             @inbounds for i in eachindex(dest)
-                if isassigned(dest, i)
-                    zero!(dest[i])
-                else
-                    dest[i] = zero(AffineFunction{T})
-                end
+                zero!(dest[i])
                 $scalarfun!(dest[i], x[i], y[i])
             end
             dest
@@ -514,11 +510,7 @@ end
 function vcat!(y::AbstractVector{<:AffineFunction},
                args::Vararg{<:AbstractVector{<:AffineFunction}, N}) where N
     @inbounds for i in eachindex(y)
-        if isassigned(y, i)
-            zero!(y[i])
-        else
-            y[i] = zero(AffineFunction{T})
-        end
+        zero!(y[i])
     end
     _vcat!(y, 1, args...)
     y

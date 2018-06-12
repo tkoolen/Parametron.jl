@@ -124,9 +124,8 @@ function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Union{Number, Variab
     LazyExpression(Functions.mul!, deepcopy(expr()), expr.args...)
 end
 
-function optimize(expr::LazyExpression{typeof(vcat)}, T::Type{<:AbstractVector{<:AffineFunction}}...)
-    dest = deepcopy(expr())
-    LazyExpression(Functions.vcat!, dest, expr.args...)
+function optimize(expr::LazyExpression{typeof(vcat)}, ::Type{<:AbstractVector{<:AffineFunction}}...)
+    LazyExpression(Functions.vcat!, deepcopy(expr()), expr.args...)
 end
 
 # Wrapping

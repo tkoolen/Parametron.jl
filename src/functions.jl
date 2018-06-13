@@ -404,7 +404,7 @@ for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
         function $vecfun!(dest::AbstractVector{AffineFunction{T}}, x::AbstractVector, y::AbstractVector) where T
             n = length(x)
             @boundscheck n == length(y) || throw(DimensionMismatch())
-            resize!(dest, n)
+            length(dest) == n || resize!(dest, n)
             @inbounds for i in eachindex(dest)
                 zero!(dest[i])
                 $scalarfun!(dest[i], x[i], y[i])

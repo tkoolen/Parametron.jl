@@ -21,7 +21,7 @@ function (parameter::Parameter{T})() where {T}
         update!(parameter)
         parameter.dirty[] = false
     end
-    parameter.val[]
+    parameter.val[]::T
 end
 
 update!(parameter::Parameter{T, F, true}) where {T, F} = (parameter.f(parameter.val[]); nothing)

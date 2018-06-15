@@ -79,9 +79,6 @@ function update!(moi_f::MOI.VectorAffineFunction, fs::Vector{<:AffineFunction}, 
     moi_f
 end
 
-update!(moi_f, f::WrappedExpression, varmap = IdentityVarMap()) = update!(moi_f, f(), varmap)
-
-
 # MOI function construction
 function MOI.ScalarAffineFunction(f::AffineFunction{T}) where T
     ret = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{T}[], f.constant)

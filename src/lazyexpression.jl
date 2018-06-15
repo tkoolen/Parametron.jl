@@ -11,11 +11,14 @@ Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression
 evalarg(x) = x
 evalarg(x::Parameter) = x()
 evalarg(x::LazyExpression) = x()
-(expr::LazyExpression)() = evalexpr(expr.f, expr.args...)
-@generated function evalexpr(f, args::Vararg{Any, N}) where N
+(expr::LazyExpression{F, A})() where {F, A} = evalexpr(expr.f, expr.args)
+@generated function evalexpr(f::F, args::Tuple{Vararg{Any, N}}) where {F, N}
     # equivalent to f(map(evalarg, args)...), minus the inference issues
     argexprs = [:(evalarg(args[$i])) for i = 1 : N]
-    :(f($(argexprs...)))
+    quote
+        Base.@_inline_meta
+        f($(argexprs...))
+    end
 end
 
 
@@ -26,7 +29,7 @@ macro expression(expr)
     #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
     postwalk(expand(expr)) do x
         if @capture(x, f_(args__))
-            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+            :(wrap(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...)))))
         else
             if x isa Expr && x.head ∉ [:block, :line]
                 buf = IOBuffer()
@@ -44,7 +47,7 @@ macro expression(expr)
 end
 
 
-# Optimizatons
+# Optimizations
 function optimize_toplevel(@nospecialize expr::LazyExpression)
     if any(arg -> arg isa Parameter || arg isa LazyExpression, expr.args)
         expr′ = LazyExpression(expr.f, map(optimizearg, expr.args)...)
@@ -90,7 +93,7 @@ function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type)
     ret = expr()
     if ret isa AffineFunction || ret isa QuadraticFunction
         LazyExpression(Functions.add!, zero(typeof(ret)), expr.args...)
-    elseif ret isa Vector{<:AffineFunction}
+    elseif ret isa AbstractVector{<:AffineFunction}
         LazyExpression(Functions.vecadd!, deepcopy(ret), expr.args...)
     else
         expr
@@ -129,8 +132,9 @@ function optimize(expr::LazyExpression{typeof(vcat)}, ::Type{<:AbstractVector{<:
 end
 
 # Wrapping
-struct WrappedExpression{T}
-    f::FunctionWrapper{T, Tuple{}}
+function wrap(expr::LazyExpression)
+    T = typeof(expr())
+    LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
 end
-(expr::WrappedExpression)() = expr.f()
-Base.convert(::Type{WrappedExpression{T}}, expr::LazyExpression) where {T} = WrappedExpression{T}(expr)
+
+const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}

@@ -84,6 +84,7 @@ AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where 
 AffineFunction(linear::Vector{LinearTerm{T}}, constant) where {T} = AffineFunction(linear, Ref(constant))
 AffineFunction(constant::T) where {T<:Number} = AffineFunction(LinearTerm{T}[], constant)
 AffineFunction(x::LinearTerm{T}) where {T} = AffineFunction([x], zero(T))
+AffineFunction{T}(x::Variable) where {T} = AffineFunction(LinearTerm{T}(x))
 
 coefftype(::Type{AffineFunction{T}}) where {T} = T
 
@@ -97,6 +98,7 @@ zero!(f::AffineFunction) = (empty!(f.linear); f.constant[] = 0; f)
 Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
 Base.convert(::Type{AffineFunction{T}}, x::Number) where {T} = AffineFunction(LinearTerm{T}[], convert(T, x))
 Base.convert(::Type{AffineFunction{T}}, x::LinearTerm) where {T} = AffineFunction([convert(LinearTerm{T}, x)], zero(T))
+Base.convert(::Type{AffineFunction{T}}, x::Variable) where {T} = AffineFunction{T}(x)
 
 function Base.show(io::IO, f::AffineFunction)
     for term in f.linear
@@ -127,9 +129,11 @@ QuadraticFunction{T}(f::QuadraticFunction) where {T} =
 QuadraticFunction(f::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(f)
 QuadraticFunction(quadratic::Vector{QuadraticTerm{T}}, affine::AffineFunction{S}) where {T, S} =
     QuadraticFunction{promote_type(T, S)}(quadratic, affine)
+QuadraticFunction(x::AffineFunction{T}) where {T} = QuadraticFunction(QuadraticTerm{T}[], x)
 QuadraticFunction(constant::T) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(constant))
 QuadraticFunction(x::LinearTerm{T}) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(x))
 QuadraticFunction(x::QuadraticTerm{T}) where {T} = QuadraticFunction([x], zero(AffineFunction{T}))
+QuadraticFunction{T}(x::Variable) where {T} = QuadraticFunction(AffineFunction{T}(x))
 
 
 coefftype(::Type{QuadraticFunction{T}}) where {T} = T

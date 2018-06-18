@@ -72,6 +72,8 @@ end
 
     f8 = f7 - LinearTerm(4, y)
     @test f8(vals1) == f7(vals1) - 4 * vals1[y]
+
+    @test AffineFunction{Int}(x) == x + 0
 end
 
 @testset "QuadraticFunction" begin
@@ -111,6 +113,8 @@ end
 
     f5 = (0.5 * x[2]) + (3 * x[1] * x[2])
     @test f5(vals) == 3 * xvals[1] * xvals[2] + 0.5 * xvals[2]
+
+    @test QuadraticFunction{Int}(x[1]) == QuadraticFunction(x[1] + 0)
 end
 
 @testset "matvecmul!" begin

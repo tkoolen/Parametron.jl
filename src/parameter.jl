@@ -16,7 +16,7 @@ Parameter(f, model) = Parameter{typeof(f())}(f, model)
 isinplace(::Type{Parameter{T, F, InPlace}}) where {T, F, InPlace} = InPlace
 Base.show(io::IO, param::Parameter{T, F, InPlace}) where {T, F, InPlace} = print(io, "Parameter{$T, …}(…)")
 
-function (parameter::Parameter{T})() where {T}
+@inline function (parameter::Parameter{T})() where {T}
     if parameter.dirty[]
         update!(parameter)
         parameter.dirty[] = false

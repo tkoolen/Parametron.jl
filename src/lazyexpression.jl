@@ -8,10 +8,10 @@ Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression
 
 
 # Evaluation
-evalarg(x) = x
-evalarg(x::Parameter) = x()
-evalarg(x::LazyExpression) = x()
-(expr::LazyExpression{F, A})() where {F, A} = evalexpr(expr.f, expr.args)
+@inline evalarg(x) = x
+@inline evalarg(x::Parameter) = x()
+@inline evalarg(x::LazyExpression) = x()
+@inline (expr::LazyExpression{F, A})() where {F, A} = evalexpr(expr.f, expr.args)
 @generated function evalexpr(f::F, args::Tuple{Vararg{Any, N}}) where {F, N}
     # equivalent to f(map(evalarg, args)...), minus the inference issues
     argexprs = [:(evalarg(args[$i])) for i = 1 : N]
@@ -51,7 +51,7 @@ end
 function optimize_toplevel(@nospecialize expr::LazyExpression)
     if any(arg -> arg isa Parameter || arg isa LazyExpression, expr.args)
         expr′ = LazyExpression(expr.f, map(optimizearg, expr.args)...)
-        argtypes = map(arg -> typeof(evalarg(arg)), expr.args)
+        argtypes = map(arg -> typeof(evalarg(arg)), expr.args) # TODO: use Core.typeof in 0.7 to improve handling of Types
         return optimize(expr′, argtypes...)
     else
         # simply evaluate
@@ -129,6 +129,10 @@ end
 
 function optimize(expr::LazyExpression{typeof(vcat)}, ::Type{<:AbstractVector{<:AffineFunction}}...)
     LazyExpression(Functions.vcat!, deepcopy(expr()), expr.args...)
+end
+
+function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:AbstractVector})
+    LazyExpression(Compat.copyto!, deepcopy(expr()), expr.args[2])
 end
 
 # Wrapping

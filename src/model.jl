@@ -84,9 +84,10 @@ addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonpositives}) where {T} = push
 addconstraint!(m::Model{T}, c::Constraint{T, MOI.Zeros}) where {T} = push!(m.zeroconstraints, c)
 
 function addconstraint!(m::Model{T}, f, set::MOI.AbstractVectorSet) where T
+    f′ = @expression convert(Vector{AffineFunction{T}}, f) # to handle e.g. constraint functions that return SVectors
     m.initialized && error()
-    constraint = Constraint{T}(f, set)
-    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f()), set)
+    constraint = Constraint{T}(f′, set)
+    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f′()), set)
     addconstraint!(m, constraint)
     nothing
 end

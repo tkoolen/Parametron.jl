@@ -25,7 +25,9 @@ export
     add_zero_constraint!,
     solve!,
     value,
-    objectivevalue
+    objectivevalue,
+    terminationstatus,
+    primalstatus
 
 # macros
 export

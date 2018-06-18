@@ -161,13 +161,10 @@ function solve!(m::Model)
     nothing
 end
 
-function value(m::Model, x::Variable)
-    MOI.get(m.optimizer, MOI.VariablePrimal(), m.user_var_to_optimizer[x.index])
-end
-
-function objectivevalue(m::Model)
-    MOI.get(m.optimizer, MOI.ObjectiveValue())
-end
+value(m::Model, x::Variable) = MOI.get(m.optimizer, MOI.VariablePrimal(), m.user_var_to_optimizer[x.index])
+objectivevalue(m::Model) = MOI.get(m.optimizer, MOI.ObjectiveValue())
+terminationstatus(m::Model) = MOI.get(m.optimizer, MOI.TerminationStatus())
+primalstatus(m::Model) = MOI.get(m.optimizer, MOI.PrimalStatus())
 
 macro constraint(model, expr)
     addcon = if @capture(expr, >=(lhs_, rhs_))

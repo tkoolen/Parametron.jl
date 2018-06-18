@@ -202,4 +202,18 @@ end
     @test (@expression vcat(x', [1, 2, 3, 4]'))() == vcat(x', [1, 2, 3, 4]')
 end
 
+@testset "convert optimization" begin
+    m = MockModel()
+    A = Parameter{SMatrix{3, 3, Int, 9}}(m) do
+        @SMatrix ones(Int, 3, 3)
+    end
+    x = Variable.(1 : 3)
+    expr = @expression convert(Vector, A * x)
+
+    @test expr() == A() * x
+    @test expr() isa Vector{AffineFunction{Int}}
+    allocs = @allocated expr()
+    @test allocs == 0
+end
+
 end

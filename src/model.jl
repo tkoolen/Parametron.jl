@@ -3,12 +3,8 @@ mutable struct Objective{T}
     expr::WrappedExpression{QuadraticFunction{T}}
     moi_f::MOI.ScalarQuadraticFunction{T}
 
-    function Objective{T}(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T}
-        new{T}(sense, expr, MOI.ScalarQuadraticFunction(expr()))
-    end
-
     function Objective{T}(sense:: Sense, expr::LazyExpression) where {T}
-        Objective(sense, WrappedExpression{QuadraticFunction{T}}(expr))
+        new{T}(sense, wrap(expr), MOI.ScalarQuadraticFunction(expr()))
     end
 end
 Objective(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T} = Objective{T}(sense, expr)
@@ -21,12 +17,8 @@ mutable struct Constraint{T, S<:MOI.AbstractSet}
     modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
     optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
 
-    function Constraint{T}(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet}
-        new{T, S}(expr, MOI.VectorAffineFunction(expr()), set)
-    end
-
     function Constraint{T}(expr::LazyExpression, set::S) where {T, S<:MOI.AbstractSet}
-        Constraint(WrappedExpression{Vector{AffineFunction{T}}}(expr), set)
+        new{T, S}(wrap(expr), MOI.VectorAffineFunction(expr()), set)
     end
 end
 Constraint(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet} = Constraint{T}(expr, set)
@@ -72,7 +64,7 @@ end
 function setobjective!(m::Model, sense::Sense, expr)
     m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
     m.objective.sense = sense
-    m.objective.expr = expr
+    m.objective.expr = wrap(expr)
     m.objective.moi_f = MOI.ScalarQuadraticFunction(expr())
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
     MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi_f)

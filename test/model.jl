@@ -65,8 +65,7 @@ end
     test_unconstrained(model, x, Q, r, s)
 
     allocs = @allocated solve!(model)
-    @test_broken allocs == 0
-    @test allocs <= 16
+    @test allocs == 0
 
     sval[] = 2.0
     @test_throws ArgumentError solve!(model) # can't modify constant offset

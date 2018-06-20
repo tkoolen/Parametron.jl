@@ -17,7 +17,7 @@ Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression
     argexprs = [:(evalarg(args[$i])) for i = 1 : N]
     quote
         Base.@_inline_meta
-        f($(argexprs...))
+        f($(tuple(argexprs...)...))
     end
 end
 
@@ -29,7 +29,7 @@ macro expression(expr)
     #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
     postwalk(expand(expr)) do x
         if @capture(x, f_(args__))
-            :(wrap(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...)))))
+            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
             if x isa Expr && x.head ∉ [:block, :line]
                 buf = IOBuffer()
@@ -136,9 +136,12 @@ function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:Abstra
 end
 
 # Wrapping
+const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
+
 function wrap(expr::LazyExpression)
     T = typeof(expr())
     LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
 end
 
-const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
+wrap(expr::WrappedExpression) = expr
+

@@ -91,7 +91,7 @@ end
     end
     @test allocs == 0
 
-    wrapped = SimpleQP.WrappedExpression{Vector{AffineFunction{Float64}}}(expr)
+    wrapped = SimpleQP.wrap(expr)
     setdirty!(m)
     @test wrapped() == expr()
     allocs = @allocated begin

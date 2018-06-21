@@ -136,9 +136,11 @@ function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:Abstra
 end
 
 # Wrapping
+const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
+
 function wrap(expr::LazyExpression)
     T = typeof(expr())
     LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
 end
 
-const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
+wrap(expr::WrappedExpression) = expr

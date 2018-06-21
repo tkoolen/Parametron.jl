@@ -11,15 +11,23 @@ Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression
 @inline evalarg(x) = x
 @inline evalarg(x::Parameter) = x()
 @inline evalarg(x::LazyExpression) = x()
-@inline (expr::LazyExpression{F, A})() where {F, A} = evalexpr(expr.f, expr.args)
-@generated function evalexpr(f::F, args::Tuple{Vararg{Any, N}}) where {F, N}
-    # equivalent to f(map(evalarg, args)...), minus the inference issues
-    argexprs = [:(evalarg(args[$i])) for i = 1 : N]
-    quote
-        Base.@_inline_meta
-        f($(tuple(argexprs...)...))
+@inline (expr::LazyExpression)() = evalexpr(expr.f, expr.args...)
+for nargs in 0:63
+    # from FunctionWrappers.jl
+    @eval function evalexpr(f, $((Symbol("arg", i) for i in 1:nargs)...))
+        f($((:(evalarg($(Symbol("arg", i)))) for i in 1:nargs)...))
     end
 end
+
+# @inline (expr::LazyExpression{F, A})() where {F, A} = evalexpr(expr.f, expr.args)
+# @generated function evalexpr(f::F, args::Tuple{Vararg{Any, N}}) where {F, N}
+#     # equivalent to f(map(evalarg, args)...), minus the inference issues
+#     argexprs = [:(evalarg(args[$i])) for i = 1 : N]
+#     quote
+#         Base.@_inline_meta
+#         f($(tuple(argexprs...)...))
+#     end
+# end
 
 
 # expression macro

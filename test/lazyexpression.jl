@@ -91,7 +91,8 @@ end
     end
     @test allocs == 0
 
-    wrapped = SimpleQP.WrappedExpression{Vector{AffineFunction{Float64}}}(expr)
+    wrapped = SimpleQP.wrap(expr)
+    @test wrapped isa SimpleQP.WrappedExpression{Vector{AffineFunction{Float64}}}
     setdirty!(m)
     @test wrapped() == expr()
     allocs = @allocated begin
@@ -99,6 +100,8 @@ end
         wrapped()
     end
     @test allocs == 0
+    wrapped² = SimpleQP.wrap(wrapped)
+    @test wrapped² === wrapped
 end
 
 @testset "StaticArrays" begin

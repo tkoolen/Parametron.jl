@@ -8,10 +8,9 @@ import SimpleQP: MockModel, setdirty!, findallocs
 
 @testset "findallocs" begin
     model = MockModel()
-    p = Parameter(model) do
-        3
-    end
-    expr = @expression p * 4
+    x = Variable(model)
+    p = Parameter{Int}(() -> 3, model)
+    expr = @expression p * 4 + x
     setdirty!(model); findallocs(devnull, expr)
 end
 

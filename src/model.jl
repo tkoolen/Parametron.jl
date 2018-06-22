@@ -3,15 +3,10 @@ mutable struct Objective{T}
     expr::WrappedExpression{QuadraticFunction{T}}
     moi_f::MOI.ScalarQuadraticFunction{T}
 
-    function Objective{T}(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T}
-        new{T}(sense, expr, MOI.ScalarQuadraticFunction(expr()))
-    end
-
     function Objective{T}(sense:: Sense, expr::LazyExpression) where {T}
-        Objective(sense, WrappedExpression{QuadraticFunction{T}}(expr))
+        new{T}(sense, convert(WrappedExpression{QuadraticFunction{T}}, expr), MOI.ScalarQuadraticFunction(expr()))
     end
 end
-Objective(sense::Sense, expr::WrappedExpression{QuadraticFunction{T}}) where {T} = Objective{T}(sense, expr)
 
 # TODO: ScalarAffineFunction constraints
 mutable struct Constraint{T, S<:MOI.AbstractSet}
@@ -21,15 +16,10 @@ mutable struct Constraint{T, S<:MOI.AbstractSet}
     modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
     optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
 
-    function Constraint{T}(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet}
-        new{T, S}(expr, MOI.VectorAffineFunction(expr()), set)
-    end
-
     function Constraint{T}(expr::LazyExpression, set::S) where {T, S<:MOI.AbstractSet}
-        Constraint(WrappedExpression{Vector{AffineFunction{T}}}(expr), set)
+        new{T, S}(convert(WrappedExpression{Vector{AffineFunction{T}}}, expr), MOI.VectorAffineFunction(expr()), set)
     end
 end
-Constraint(expr::WrappedExpression{Vector{AffineFunction{T}}}, set::S) where {T, S<:MOI.AbstractSet} = Constraint{T}(expr, set)
 
 mutable struct Model{T, O<:MOI.AbstractOptimizer}
     params::Vector{Parameter}

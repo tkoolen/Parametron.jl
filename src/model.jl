@@ -54,7 +54,7 @@ setdirty!(model::Model) = foreach(setdirty!, model.params)
 addparameter!(model::Model, param::Parameter) = (push!(model.params, param); param)
 
 function Variable(m::Model)
-    m.initialized && error()
+    m.initialized && error("Model has already been initialized.")
     index = MOI.addvariable!(m.backend)
     Variable(index)
 end

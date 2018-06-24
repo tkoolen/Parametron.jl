@@ -122,7 +122,7 @@ end
 
 function update!(constraint::Constraint, m::Model)
     update!(constraint.moi_f, constraint.expr(), m.user_var_to_optimizer)
-    MOI.modifyconstraint!(m.optimizer, constraint.optimizerindex, constraint.moi_f)
+    MOI.set!(m.optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.moi_f)
     nothing
 end
 

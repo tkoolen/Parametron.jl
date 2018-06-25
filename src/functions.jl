@@ -76,15 +76,20 @@ struct AffineFunction{T}
     linear::Vector{LinearTerm{T}}
     constant::Base.RefValue{T}
 end
-AffineFunction{T}(f::AffineFunction) where {T} =
-    AffineFunction(copyto!(Vector{LinearTerm{T}}(undef, length(f.linear)), f.linear), T(f.constant[]))
-AffineFunction(f::AffineFunction{T}) where {T} = AffineFunction{T}(f)
-AffineFunction(linear::Vector{LinearTerm{T}}, constant::Base.RefValue{S}) where {T, S} =
+
+AffineFunction{T}(linear::Vector{<:LinearTerm}, constant::Number) where {T} =
+    AffineFunction{T}(copyto!(Vector{LinearTerm{T}}(undef, length(linear)), linear), Ref(T(constant)))
+AffineFunction(linear::Vector{LinearTerm{T}}, constant::S) where {T, S<:Number} =
     AffineFunction{promote_type(T, S)}(linear, constant)
-AffineFunction(linear::Vector{LinearTerm{T}}, constant) where {T} = AffineFunction(linear, Ref(constant))
-AffineFunction(constant::T) where {T<:Number} = AffineFunction(LinearTerm{T}[], constant)
-AffineFunction(x::LinearTerm{T}) where {T} = AffineFunction([x], zero(T))
-AffineFunction{T}(x::Variable) where {T} = AffineFunction(LinearTerm{T}(x))
+
+AffineFunction{T}(x::AffineFunction) where {T} = AffineFunction{T}(x.linear, x.constant[])
+AffineFunction{T}(x::LinearTerm) where {T} = AffineFunction{T}([LinearTerm{T}(x)], Ref(zero(T)))
+AffineFunction{T}(x::Variable) where {T} = AffineFunction{T}(LinearTerm{T}(x))
+AffineFunction{T}(x::Number) where {T} = AffineFunction{T}(LinearTerm{T}[], Ref(T(x)))
+
+AffineFunction(x::AffineFunction{T}) where {T} = AffineFunction{T}(x)
+AffineFunction(x::LinearTerm{T}) where {T} = AffineFunction{T}(x)
+AffineFunction(x::T) where {T<:Number} = AffineFunction{T}(x)
 
 coefftype(::Type{AffineFunction{T}}) where {T} = T
 
@@ -124,17 +129,22 @@ struct QuadraticFunction{T}
     affine::AffineFunction{T}
 end
 
-QuadraticFunction{T}(f::QuadraticFunction) where {T} =
-    QuadraticFunction(copyto!(Vector{QuadraticTerm{T}}(undef, length(f.quadratic)), f.quadratic), AffineFunction{T}(f.affine))
-QuadraticFunction(f::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(f)
 QuadraticFunction(quadratic::Vector{QuadraticTerm{T}}, affine::AffineFunction{S}) where {T, S} =
     QuadraticFunction{promote_type(T, S)}(quadratic, affine)
-QuadraticFunction(x::AffineFunction{T}) where {T} = QuadraticFunction(QuadraticTerm{T}[], x)
-QuadraticFunction(constant::T) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(constant))
-QuadraticFunction(x::LinearTerm{T}) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(x))
-QuadraticFunction(x::QuadraticTerm{T}) where {T} = QuadraticFunction([x], zero(AffineFunction{T}))
-QuadraticFunction{T}(x::Variable) where {T} = QuadraticFunction(AffineFunction{T}(x))
 
+QuadraticFunction{T}(x::QuadraticFunction) where {T} =
+    QuadraticFunction{T}(copyto!(Vector{QuadraticTerm{T}}(undef, length(x.quadratic)), x.quadratic), AffineFunction{T}(x.affine))
+QuadraticFunction{T}(x::AffineFunction) where {T} = QuadraticFunction{T}(QuadraticTerm{T}[], AffineFunction{T}(x))
+QuadraticFunction{T}(x::QuadraticTerm) where {T} = QuadraticFunction([QuadraticTerm{T}(x)], zero(AffineFunction{T}))
+QuadraticFunction{T}(x::LinearTerm) where {T} = QuadraticFunction{T}(QuadraticTerm{T}[], AffineFunction{T}(x))
+QuadraticFunction{T}(x::Variable) where {T} = QuadraticFunction(AffineFunction{T}(x))
+QuadraticFunction{T}(x::Number) where {T} = QuadraticFunction{T}(AffineFunction{T}(x))
+
+QuadraticFunction(x::QuadraticFunction{T}) where {T} = QuadraticFunction{T}(x)
+QuadraticFunction(x::AffineFunction{T}) where {T} = QuadraticFunction(QuadraticTerm{T}[], x)
+QuadraticFunction(x::QuadraticTerm{T}) where {T} = QuadraticFunction([x], zero(AffineFunction{T}))
+QuadraticFunction(x::LinearTerm{T}) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(x))
+QuadraticFunction(x::T) where {T<:Number} = QuadraticFunction(QuadraticTerm{T}[], AffineFunction{T}(x))
 
 coefftype(::Type{QuadraticFunction{T}}) where {T} = T
 
@@ -301,7 +311,7 @@ mul!(dest::Union{<:AffineFunction, <:QuadraticFunction}, x, y) = (zero!(dest); m
 # Operators
 for (op, fun!) in [(:+, add!), (:-, subtract!)]
     @eval begin
-        Base.$op(x::LinearTerm{T}, y::LinearTerm{T}) where {T} = AffineFunction([x, $op(y)], zero(T))
+        Base.$op(x::LinearTerm{T}, y::LinearTerm{T}) where {T} = AffineFunction{T}([x, $op(y)], zero(T))
         Base.$op(x::LinearTerm, y::LinearTerm) = +(promote(x, y)...)
         Base.$op(x::Variable, y::Variable) = $op(LinearTerm{Int}(x), LinearTerm{Int}(y))
         Base.$op(x::LinearTerm, y::Number) = AffineFunction([x], $op(y))

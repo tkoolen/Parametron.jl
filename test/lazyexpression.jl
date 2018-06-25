@@ -219,4 +219,17 @@ end
     @test allocs == 0
 end
 
+@testset "issue 26" begin
+    model = MockModel()
+    n = 2
+    x = Variable.(1 : n)
+    q = Parameter(zeros(n), model) do q
+        q[1] = 1
+        q[2] = 2
+    end
+    expr1 = @expression transpose(x) * eye(Int, n) * x + q' * x
+    expr2 = @expression q' * x + transpose(x) * eye(Int, 2) * x
+    @test expr1() == expr2()
+end
+
 end

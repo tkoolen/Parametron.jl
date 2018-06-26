@@ -24,9 +24,9 @@ end
         2 + 2
     end
     wrapped = SimpleQP.lazy_wrap(expr)
-    @test wrapped == esc(Expr(
+    @test wrapped == Expr(
         expr.head,
-        SimpleQP.lazy_wrap.(expr.args)...))
+        SimpleQP.lazy_wrap.(expr.args)...)
 end
 
 @testset "parameter" begin

@@ -32,7 +32,7 @@ function lazy_wrap(x::Expr)
     elseif x.head == :$ && length(x.args) == 1
         return esc(x.args[1])
     elseif x.head == :block
-        return esc(Expr(x.head, lazy_wrap.(x.args)...))
+        return Expr(x.head, lazy_wrap.(x.args)...)
     elseif x.head == :call
         if x.args[1] == GlobalRef(Core, :getfield)  # TODO: probably different on 0.7
             return esc(x)

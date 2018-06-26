@@ -125,6 +125,13 @@ end
     @test y == fill(sum(x), size(A, 1))
     allocs = @allocated Functions.matvecmul!(y, A, x)
     @test allocs == 0
+
+    Bx = rand(4, 4) * x
+    y2 = Vector{AffineFunction{Float64}}(undef, size(A, 1))
+    Functions.matvecmul!(y2, A, Bx)
+    @test y2 == fill(sum(Bx), size(A, 1))
+    allocs = @allocated Functions.matvecmul!(y2, A, Bx)
+    @test allocs == 0
 end
 
 @testset "mul!" begin

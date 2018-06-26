@@ -67,7 +67,7 @@ optimizearg(expr::LazyExpression{typeof(identity)}) = expr.args[1]
 
 optimize(expr::LazyExpression, argtypes...) = expr
 
-function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractMatrix{T}}, ::Type{<:AbstractVector{Variable}}) where T
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractMatrix{T}}, ::Type{<:AbstractVector{<:Union{Variable, AffineFunction}}}) where T
     A, x = expr.args
     dest = deepcopy(expr())
     LazyExpression(Functions.matvecmul!, dest, A, x)
@@ -136,6 +136,15 @@ end
 
 function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:AbstractVector})
     LazyExpression(Compat.copyto!, deepcopy(expr()), expr.args[2])
+end
+
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Number}, ::Type{<:AbstractVector{<:Union{Variable, AffineFunction}}})
+    LazyExpression(deepcopy(expr()), expr.args...) do dest, x, y
+        for I in eachindex(dest)
+            Functions.mul!(dest[I], x, y[I])
+        end
+        dest
+    end
 end
 
 # Wrapping

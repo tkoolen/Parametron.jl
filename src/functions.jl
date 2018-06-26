@@ -453,6 +453,31 @@ function matvecmul!(
     y
 end
 
+function matvecmul!(
+    y::AbstractVector{AffineFunction{T}},
+    A::AbstractMatrix{<:Number},
+    x::AbstractVector{<:AffineFunction}) where T
+    rows, cols = size(A)
+    @boundscheck length(y) == rows || throw(DimensionMismatch())
+    @boundscheck length(x) == cols || throw(DimensionMismatch())
+    @inbounds for row in eachindex(y)
+        if isassigned(y, row)
+            zero!(y[row])
+        else
+            y[row] = zero(AffineFunction{T})
+        end
+    end
+    i = 1
+    @inbounds for col in Base.OneTo(cols)
+        for row in Base.OneTo(rows)
+            muladd!(y[row], A[i], x[col])
+            i += 1
+        end
+    end
+    y
+end
+
+
 function bilinearmul!(
         dest::QuadraticFunction,
         Q::AbstractMatrix,

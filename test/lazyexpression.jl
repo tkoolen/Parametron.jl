@@ -19,6 +19,16 @@ end
     @test_throws(ArgumentError, @expression x ? y : z)
 end
 
+@testset "other expression heads" begin
+    expr = quote
+        2 + 2
+    end
+    wrapped = SimpleQP.lazy_wrap(expr)
+    @test wrapped == esc(Expr(
+        expr.head,
+        SimpleQP.lazy_wrap.(expr.args)...))
+end
+
 @testset "parameter" begin
     model = MockModel()
     a = 3

@@ -1,3 +1,6 @@
+_debug_args(expr::LazyExpression) = expr.args
+_debug_args(expr::LazyExpression{<:FunctionWrapper}) = expr.f.obj[].args
+
 function findallocs(io::IO, x, depth = 0, argnum = nothing)
     depth > 0 && print(io, "  "^depth)
     argnum != nothing && print(io, "[$argnum]: ")
@@ -13,7 +16,7 @@ function findallocs(io::IO, x, depth = 0, argnum = nothing)
         println(io, typeof(x))
     end
     if x isa LazyExpression
-        for (argnum, arg) in enumerate(x.args)
+        for (argnum, arg) in enumerate(_debug_args(x))
             findallocs(io, arg, depth + 1, argnum)
         end
     end

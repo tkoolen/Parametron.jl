@@ -5,6 +5,9 @@ struct LazyExpression{F, A}
 end
 
 Base.show(io::IO, expr::LazyExpression{F}) where {F} = print(io, "LazyExpression{$F, …}(…)")
+function Base.show(io::IO, expr::LazyExpression{F}) where {F <: FunctionWrapper}
+    print(io, "LazyExpression{FunctionWrapper{…}($(expr.f.obj[]))}(…)")
+end
 
 
 # Evaluation

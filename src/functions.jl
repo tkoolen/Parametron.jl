@@ -517,7 +517,7 @@ function scale!(
     dest::AbstractVector{<:LinearTerm},
     x::AbstractVector{Variable},
     y::Number)
-    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x[i] * y
     end
@@ -539,7 +539,7 @@ function scale!(
     dest::AbstractVector{<:AffineFunction},
     x::AbstractVector{<:AffineFunction},
     y::Number)
-    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x[i], y)
     end

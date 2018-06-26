@@ -145,26 +145,29 @@ end
 end
 
 @testset "scale! optimization" begin
-    x = Variable.(1 : 3)
-    dt = 0.01
+    model = MockModel()
+    x = [Variable(model) for _ in 1 : 3]
+    dt = Parameter{Float64}(model) do
+        2.0
+    end
     @testset "Variable" begin
         expr = @expression dt * x
-        @test expr() == dt * x
+        @test expr() == dt() * x
         @test @allocated(expr()) == 0
 
         expr = @expression x * dt
-        @test expr() == x * dt
+        @test expr() == x * dt()
         @test @allocated(expr()) == 0
     end
 
     @testset "AffineFunction" begin
         Ax = ones(3, 3) * x
         expr = @expression dt * Ax
-        @test expr() == dt * Ax
+        @test expr() == dt() * Ax
         @test @allocated(expr()) == 0
 
         expr = @expression Ax * dt
-        @test expr() == Ax * dt
+        @test expr() == Ax * dt()
         @test @allocated(expr()) == 0
     end
 end

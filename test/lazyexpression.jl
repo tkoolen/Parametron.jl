@@ -144,12 +144,16 @@ end
     @test allocs == 0
 end
 
-@testset "scalar-vector product optimization" begin
+@testset "scale! optimization" begin
     x = Variable.(1 : 3)
     dt = 0.01
     @testset "Variable" begin
         expr = @expression dt * x
         @test expr() == dt * x
+        @test @allocated(expr()) == 0
+
+        expr = @expression x * dt
+        @test expr() == x * dt
         @test @allocated(expr()) == 0
     end
 
@@ -157,6 +161,10 @@ end
         Ax = ones(3, 3) * x
         expr = @expression dt * Ax
         @test expr() == dt * Ax
+        @test @allocated(expr()) == 0
+
+        expr = @expression Ax * dt
+        @test expr() == Ax * dt
         @test @allocated(expr()) == 0
     end
 end

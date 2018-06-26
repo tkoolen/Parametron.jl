@@ -5,7 +5,7 @@ using Compat.Test
 using SimpleQP
 using StaticArrays
 
-import SimpleQP: setdirty!, MockModel
+using SimpleQP: setdirty!, MockModel, _debug_args, LazyExpression
 
 @testset "basics" begin
     a = 2
@@ -17,6 +17,16 @@ end
 
 @testset "bad expression" begin
     @test_throws(ArgumentError, @expression x ? y : z)
+end
+
+@testset "other expression heads" begin
+    expr = quote
+        2 + 2
+    end
+    wrapped = SimpleQP.lazy_wrap(expr)
+    @test wrapped == Expr(
+        expr.head,
+        SimpleQP.lazy_wrap.(expr.args)...)
 end
 
 @testset "parameter" begin
@@ -278,6 +288,47 @@ end
     expr = @expression(H * (v - v0) - Δt * (u - c))
     @test expr() == H() * (v - v0) - Δt * (u - c())
     @test @allocated(expr()) == 0
+end
+
+@testset "Fully-qualified names" begin
+    expr = @expression Base.:+(2, 2)
+    @test expr() == 4
+    @test @allocated(expr()) == 0
+
+    expr = @expression Base.:+(Base.:*(1, 2), 4 + 5)
+    @test expr() == 11
+    @test @allocated(expr()) == 0
+end
+
+@testset "Interpolated arguments" begin
+    e1 = @expression 1 + 2 * (3 * 4 + (5 * 6))
+    @test _debug_args(e1)[1] == 1
+    @test _debug_args(e1)[2] isa LazyExpression
+    @test _debug_args(_debug_args(e1)[2])[1] == 2
+    @test _debug_args(_debug_args(e1)[2])[2] isa LazyExpression
+
+    e2 = @expression 1 + 2 * $(3 * 4 + (5 * 6))
+    @test _debug_args(e2)[1] == 1
+    @test _debug_args(e2)[2] isa LazyExpression
+    @test _debug_args(_debug_args(e2)[2]) == (84,)
+end
+
+end
+
+module HygieneTest
+
+# Verify that we're not accidentally escaping things that should
+# still be evaluated inside SimpleQP. We can check that by trying
+# to construct an expression in a scope which *only* has the
+# @expression macro available. Any accidental escaping of SimpleQP
+# functions will cause undefined variable errors.
+
+using SimpleQP: @expression
+using Base.Test
+
+@testset "Basic @expression" begin
+    expr = @expression 2 + 2
+    @test expr() == 4
 end
 
 end

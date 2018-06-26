@@ -24,29 +24,36 @@ end
     end
 end
 
+lazy_wrap(x) = esc(x)
 
-# expression macro
-macro expression(expr)
-    # We call expand(expr) to lower the code and make some useful conversions like:
-    #   * [x; y] turns from Expr(:vcat, :x, :y) into Expr(:call, :vcat, :x, :y)
-    #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
-    postwalk(expand(expr)) do x
-        if @capture(x, f_(args__))
-            :(wrap(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...)))))
+function lazy_wrap(x::Expr)
+    if x.head == :line
+        return esc(x)
+    elseif x.head == :$ && length(x.args) == 1
+        return esc(x.args[1])
+    elseif x.head == :block
+        return Expr(x.head, lazy_wrap.(x.args)...)
+    elseif x.head == :call
+        if x.args[1] == GlobalRef(Core, :getfield)  # TODO: probably different on 0.7
+            return esc(x)
         else
-            if x isa Expr && x.head ∉ [:block, :line]
-                buf = IOBuffer()
-                dump(buf, expr)
-                msg =
-                    """
-                    Unhandled expression head: $(x.head). expr:
-                    $(String(take!(buf)))
-                    """
-                return :(throw(ArgumentError($msg)))
-            end
-            esc(x)
+            return :(wrap(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($(lazy_wrap.(x.args)...)))))
         end
+    else
+        buf = IOBuffer()
+        dump(buf, x)
+        msg =
+            """
+            Unhandled expression head: $(x.head). expr:
+            $(String(take!(buf)))
+            """
+        return :(throw(ArgumentError($msg)))
     end
+end
+
+
+macro expression(expr)
+    lazy_wrap(expand(expr))
 end
 
 

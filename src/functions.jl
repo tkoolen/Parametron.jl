@@ -453,6 +453,31 @@ function matvecmul!(
     y
 end
 
+function matvecmul!(
+    y::AbstractVector{AffineFunction{T}},
+    A::AbstractMatrix{<:Number},
+    x::AbstractVector{<:AffineFunction}) where T
+    rows, cols = size(A)
+    @boundscheck length(y) == rows || throw(DimensionMismatch())
+    @boundscheck length(x) == cols || throw(DimensionMismatch())
+    @inbounds for row in eachindex(y)
+        if isassigned(y, row)
+            zero!(y[row])
+        else
+            y[row] = zero(AffineFunction{T})
+        end
+    end
+    i = 1
+    @inbounds for col in Base.OneTo(cols)
+        for row in Base.OneTo(rows)
+            muladd!(y[row], A[i], x[col])
+            i += 1
+        end
+    end
+    y
+end
+
+
 function bilinearmul!(
         dest::QuadraticFunction,
         Q::AbstractMatrix,
@@ -477,6 +502,49 @@ function Base.:*(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T<:Line
     matvecmul!(similar(x, AffineFunction{T}, size(A, 1)) , A, x)
 end
 
+function scale!(
+    dest::AbstractVector{<:LinearTerm},
+    x::Number,
+    y::AbstractVector{Variable})
+    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @inbounds for i in eachindex(dest)
+        dest[i] = x * y[i]
+    end
+    dest
+end
+
+function scale!(
+    dest::AbstractVector{<:LinearTerm},
+    x::AbstractVector{Variable},
+    y::Number)
+    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
+    @inbounds for i in eachindex(dest)
+        dest[i] = x[i] * y
+    end
+    dest
+end
+
+function scale!(
+    dest::AbstractVector{<:AffineFunction},
+    x::Number,
+    y::AbstractVector{<:AffineFunction})
+    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @inbounds for i in eachindex(dest)
+        mul!(dest[i], x, y[i])
+    end
+    dest
+end
+
+function scale!(
+    dest::AbstractVector{<:AffineFunction},
+    x::AbstractVector{<:AffineFunction},
+    y::Number)
+    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
+    @inbounds for i in eachindex(dest)
+        mul!(dest[i], x[i], y)
+    end
+    dest
+end
 
 if VERSION >= v"0.7-"
     error("TODO: implement mul! for 0.7")

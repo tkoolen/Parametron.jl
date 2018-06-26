@@ -154,6 +154,35 @@ end
     @test allocs == 0
 end
 
+@testset "scale! optimization" begin
+    model = MockModel()
+    x = [Variable(model) for _ in 1 : 3]
+    dt = Parameter{Float64}(model) do
+        2.0
+    end
+    @testset "Variable" begin
+        expr = @expression dt * x
+        @test expr() == dt() * x
+        @test @allocated(expr()) == 0
+
+        expr = @expression x * dt
+        @test expr() == x * dt()
+        @test @allocated(expr()) == 0
+    end
+
+    @testset "AffineFunction" begin
+        Ax = ones(3, 3) * x
+        expr = @expression dt * Ax
+        @test expr() == dt() * Ax
+        @test @allocated(expr()) == 0
+
+        expr = @expression Ax * dt
+        @test expr() == Ax * dt()
+        @test @allocated(expr()) == 0
+    end
+end
+
+
 @testset "vcat optimization" begin
     srand(42)
     m = MockModel()
@@ -240,6 +269,25 @@ end
     expr1 = @expression transpose(x) * eye(Int, n) * x + q' * x
     expr2 = @expression q' * x + transpose(x) * eye(Int, 2) * x
     @test expr1() == expr2()
+end
+
+@testset "issue 32" begin
+    model = MockModel()
+    v = [Variable(model) for _ in 1:2]
+    v0 = zeros(2)
+    Δt = 0.01
+    u = [Variable(model) for _ in 1:2]
+    H = Parameter(zeros(2, 2), model) do H
+        H[1, 1] = rand()
+        H[2, 2] = rand()
+    end
+    c = Parameter(zeros(2), model) do c
+        c[1] = rand()
+        c[2] = rand()
+    end
+    expr = @expression(H * (v - v0) - Δt * (u - c))
+    @test expr() == H() * (v - v0) - Δt * (u - c())
+    @test @allocated(expr()) == 0
 end
 
 @testset "Fully-qualified names" begin

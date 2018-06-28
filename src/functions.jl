@@ -155,7 +155,9 @@ Base.hash(x::QuadraticFunction, h::UInt) = (h = hash(x.quadratic, h); hash(x.aff
 Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(QuadraticTerm{T}[], zero(AffineFunction{T}))
 zero!(f::QuadraticFunction) = (empty!(f.quadratic); zero!(f.affine); f)
 
-# TODO: conversions
+Base.convert(::Type{QuadraticFunction{T}}, x::QuadraticTerm) where {T} =
+    QuadraticFunction([convert(QuadraticTerm{T}, x)], zero(AffineFunction{T}))
+
 
 function Base.show(io::IO, f::QuadraticFunction)
     for term in f.quadratic

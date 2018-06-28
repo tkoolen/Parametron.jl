@@ -3,8 +3,10 @@ mutable struct Objective{T}
     expr::WrappedExpression{QuadraticFunction{T}}
     moi_f::MOI.ScalarQuadraticFunction{T}
 
-    function Objective{T}(sense:: Sense, expr::LazyExpression) where {T}
-        new{T}(sense, convert(WrappedExpression{QuadraticFunction{T}}, expr), MOI.ScalarQuadraticFunction(expr()))
+    function Objective{T}(sense::Sense, expr) where {T}
+        converted = @expression convert(QuadraticFunction{T}, expr)
+        wrapped = convert(WrappedExpression{QuadraticFunction{T}}, converted)
+        new{T}(sense, wrapped, MOI.ScalarQuadraticFunction(wrapped()))
     end
 end
 
@@ -16,8 +18,10 @@ mutable struct Constraint{T, S<:MOI.AbstractSet}
     modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
     optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
 
-    function Constraint{T}(expr::LazyExpression, set::S) where {T, S<:MOI.AbstractSet}
-        new{T, S}(convert(WrappedExpression{Vector{AffineFunction{T}}}, expr), MOI.VectorAffineFunction(expr()), set)
+    function Constraint{T}(expr, set::S) where {T, S<:MOI.AbstractSet}
+        converted = @expression convert(Vector{AffineFunction{T}}, expr)
+        wrapped = convert(WrappedExpression{Vector{AffineFunction{T}}}, converted)
+        new{T, S}(wrapped, MOI.VectorAffineFunction(wrapped()), set)
     end
 end
 
@@ -37,8 +41,7 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
         params = Parameter[]
         backend = SimpleQPMOIModel{T}()
         initialized = false
-        objfun = zero(QuadraticFunction{T})
-        objective = Objective{T}(Minimize, @expression identity(objfun))
+        objective = Objective{T}(Minimize, @expression zero(QuadraticFunction{T}))
         nonnegconstraints = Constraint{T, MOI.Nonnegatives}[]
         nonposconstraints = Constraint{T, MOI.Nonpositives}[]
         zeroconstraints = Constraint{T, MOI.Zeros}[]
@@ -59,11 +62,9 @@ function Variable(m::Model)
     Variable(index)
 end
 
-function setobjective!(m::Model, sense::Sense, expr)
+function setobjective!(m::Model{T}, sense::Sense, expr) where T
     m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
-    m.objective.sense = sense
-    m.objective.expr = expr
-    m.objective.moi_f = MOI.ScalarQuadraticFunction(expr())
+    m.objective = Objective{T}(sense, expr)
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
     MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi_f)
     nothing
@@ -74,17 +75,19 @@ addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonpositives}) where {T} = push
 addconstraint!(m::Model{T}, c::Constraint{T, MOI.Zeros}) where {T} = push!(m.zeroconstraints, c)
 
 function addconstraint!(m::Model{T}, f, set::MOI.AbstractVectorSet) where T
-    f′ = @expression convert(Vector{AffineFunction{T}}, f) # to handle e.g. constraint functions that return SVectors
     m.initialized && error()
-    constraint = Constraint{T}(f′, set)
-    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(f′()), set)
+    constraint = Constraint{T}(f, set)
+    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(constraint.expr()), set)
     addconstraint!(m, constraint)
     nothing
 end
 
-add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(length(f())))
-add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(length(f())))
-add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(length(f())))
+constraintdim(expr::LazyExpression) = length(expr())
+constraintdim(val) = length(val)
+
+add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(constraintdim(f)))
+add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(constraintdim(f)))
+add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(constraintdim(f)))
 
 function mapindices(m::Model, idxmap)
     for c in m.nonnegconstraints

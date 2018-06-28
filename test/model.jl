@@ -65,8 +65,7 @@ end
     test_unconstrained(model, x, Q, r, s)
 
     allocs = @allocated solve!(model)
-    @test_broken allocs == 0
-    @test allocs <= 16
+    @test allocs == 0
 
     sval[] = 2.0
     @test_throws ArgumentError solve!(model) # can't modify constant offset
@@ -161,6 +160,31 @@ end
         @test value.(model, x) ≈ expected rtol = 1e-4
         testnum > 1 && @test allocs == 0
     end
+end
+
+@testset "Issue 30 #1" begin
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = Variable(model)
+    @constraint(model, [x] <= [-3.])
+    @objective model Minimize x^2
+    solve!(model)
+    @test value(model, x) ≈ -3. atol = 1e-8
+    allocs = @allocated solve!(model)
+    @test allocs == 0
+end
+
+@testset "Issue 30 #2" begin
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    constraintexpr(x, upperbound) = @expression [x] - [upperbound]
+    x = Variable(model)
+    @constraint model constraintexpr(x, -3.0) <= [0.0]
+    @objective model Minimize x^2
+    solve!(model)
+    @test value(model, x) ≈ -3. atol = 1e-8
+    allocs = @allocated solve!(model)
+    @test allocs == 0
 end
 
 end # module

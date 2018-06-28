@@ -25,6 +25,20 @@ end
 end
 
 
+# Wrapping
+const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
+
+Base.convert(::Type{WrappedExpression{T}}, expr::LazyExpression) where {T} =
+    LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
+Base.convert(::Type{WrappedExpression{T}}, expr::WrappedExpression{T}) where {T} = expr
+Base.convert(::Type{WrappedExpression{T}}, value::T) where {T} =
+    convert(WrappedExpression{T}, LazyExpression(identity, value))
+
+function wrap(expr::LazyExpression)
+    T = typeof(expr())
+    convert(WrappedExpression{T}, expr)
+end
+
 # expression macro
 macro expression(expr)
     # We call expand(expr) to lower the code and make some useful conversions like:
@@ -32,7 +46,7 @@ macro expression(expr)
     #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
     postwalk(expand(expr)) do x
         if @capture(x, f_(args__))
-            :(wrap(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...)))))
+            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
             if x isa Expr && x.head ∉ [:block, :line]
                 buf = IOBuffer()
@@ -52,13 +66,13 @@ end
 
 # Optimizations
 function optimize_toplevel(@nospecialize expr::LazyExpression)
+    expr isa WrappedExpression && throw(ArgumentError(("Cannot optimize wrapped expressions")))
     if any(arg -> arg isa Parameter || arg isa LazyExpression, expr.args)
-        expr′ = LazyExpression(expr.f, map(optimizearg, expr.args)...)
         argtypes = map(arg -> typeof(evalarg(arg)), expr.args) # TODO: use Core.typeof in 0.7 to improve handling of Types
-        return optimize(expr′, argtypes...)
+        return wrap(optimize(expr, argtypes...))
     else
         # simply evaluate
-        return LazyExpression(identity, expr())
+        return expr()
     end
 end
 
@@ -145,16 +159,3 @@ end
 function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractVector{<:Union{Variable, AffineFunction}}}, ::Type{<:Number})
     LazyExpression(Functions.scale!, deepcopy(expr()), expr.args...)
 end
-
-# Wrapping
-const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
-
-Base.convert(::Type{WrappedExpression{T}}, expr::WrappedExpression{T}) where {T} = expr
-Base.convert(::Type{WrappedExpression{T}}, expr::LazyExpression) where {T} =
-    LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
-
-function wrap(expr::LazyExpression)
-    T = typeof(expr())
-    convert(WrappedExpression{T}, expr)
-end
-

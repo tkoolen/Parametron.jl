@@ -8,11 +8,12 @@ using StaticArrays
 import SimpleQP: setdirty!, MockModel
 
 @testset "basics" begin
+    model = MockModel()
     a = 2
-    b = 3
+    b = Parameter{Int}(() -> 3, model)
     c = 4
     expr = @expression(a + b * c)
-    @test expr() == a + b * c
+    @test expr() == a + b() * c
 end
 
 @testset "bad expression" begin
@@ -118,15 +119,15 @@ end
     @test allocs == 0
     @test expr1() isa SVector{3, AffineFunction{Int}}
 
-    y = SVector{3}(x)
+    y = Parameter(identity, SVector{3}(x), m)
     expr2 = @expression y + y
-    @test expr2() == y + y
+    @test expr2() == y() + y()
     allocs = @allocated expr2()
     @test allocs == 0
     @test expr2() isa SVector{3, AffineFunction{Int}}
 
     expr3 = @expression y - y
-    @test expr3() == y - y
+    @test expr3() == y() - y()
     allocs = @allocated expr3()
     @test allocs == 0
     @test expr3() isa SVector{3, AffineFunction{Int}}
@@ -229,9 +230,7 @@ end
     end) == 0
 
     # Generic fallbacks that allocate memory but should still give the right answer
-    @test (@expression vcat(x, y))() == vcat(x, y)
     @test (@expression vcat(f1, 3))() == vcat(f1(), 3)
-    @test (@expression vcat(x', [1, 2, 3, 4]'))() == vcat(x', [1, 2, 3, 4]')
 end
 
 @testset "convert optimization" begin
@@ -252,13 +251,14 @@ end
     model = MockModel()
     n = 2
     x = Variable.(1 : n)
+    vals = Dict(zip(x, rand(n)))
     q = Parameter(zeros(n), model) do q
         q[1] = 1
         q[2] = 2
     end
     expr1 = @expression transpose(x) * eye(Int, n) * x + q' * x
     expr2 = @expression q' * x + transpose(x) * eye(Int, 2) * x
-    @test expr1() == expr2()
+    @test expr1()(vals) ≈ expr2()(vals) atol = 1e-14
 end
 
 @testset "issue 32" begin

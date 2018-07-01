@@ -27,7 +27,8 @@ export
     value,
     objectivevalue,
     terminationstatus,
-    primalstatus
+    primalstatus,
+    dualstatus
 
 # macros
 export

@@ -23,6 +23,7 @@ function test_unconstrained(model, x, Q, r, s; atol=1e-15)
     solve!(model)
     @test terminationstatus(model) == MOI.Success
     @test primalstatus(model) == MOI.FeasiblePoint
+    @test dualstatus(model) == MOI.FeasiblePoint
     xval = value.(model, x)
     expected = -2 * Q() \ r()
     @test xval ≈ expected atol = atol

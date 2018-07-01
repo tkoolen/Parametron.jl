@@ -158,6 +158,7 @@ value(m::Model, x::Variable) = MOI.get(m.optimizer, MOI.VariablePrimal(), m.user
 objectivevalue(m::Model) = MOI.get(m.optimizer, MOI.ObjectiveValue())
 terminationstatus(m::Model) = MOI.get(m.optimizer, MOI.TerminationStatus())
 primalstatus(m::Model) = MOI.get(m.optimizer, MOI.PrimalStatus())
+dualstatus(m::Model) = MOI.get(m.optimizer, MOI.DualStatus())
 
 macro constraint(model, expr)
     addcon = if @capture(expr, >=(lhs_, rhs_))

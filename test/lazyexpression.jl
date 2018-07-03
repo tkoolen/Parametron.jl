@@ -233,6 +233,17 @@ end
     @test (@expression vcat(f1, 3))() == vcat(f1(), 3)
 end
 
+@testset "vect optimization" begin
+    m = MockModel()
+    x = Variable.(1:2)
+    p = Parameter(m) do
+        SVector(1., 2.)
+    end
+    expr = @expression [dot(p, x)]
+    @test expr() == [dot(p(), x)]
+    @test @allocated(expr()) == 0
+end
+
 @testset "convert optimization" begin
     m = MockModel()
     A = Parameter{SMatrix{3, 3, Int, 9}}(m) do

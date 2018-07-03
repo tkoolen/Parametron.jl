@@ -159,3 +159,11 @@ end
 function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractVector{<:Union{Variable, AffineFunction}}}, ::Type{<:Number})
     LazyExpression(Functions.scale!, deepcopy(expr()), expr.args...)
 end
+
+function optimize(expr::LazyExpression{typeof(Base.vect)}, ::Type{<:Union{Variable, LinearTerm, AffineFunction}})
+    LazyExpression(deepcopy(expr()), expr.args...) do dest, x
+        @boundscheck size(dest) == (1,) || throw(DimensionMismatch())
+        dest[1] = x
+        dest
+    end
+end

@@ -3,3 +3,4 @@ MathOptInterface 0.4
 MacroTools
 FunctionWrappers 0.1.0
 Compat 0.33
+DocStringExtensions

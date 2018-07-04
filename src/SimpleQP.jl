@@ -38,6 +38,8 @@ export
 
 using Compat
 using Compat.LinearAlgebra
+using DocStringExtensions
+
 import FunctionWrappers: FunctionWrapper
 import MathOptInterface
 import MacroTools: @capture, postwalk
@@ -56,7 +58,6 @@ end
 
 @enum Sense Minimize Maximize
 
-# include("util.jl")
 include("functions.jl")
 include("parameter.jl")
 

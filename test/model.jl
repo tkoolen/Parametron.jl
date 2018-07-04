@@ -188,4 +188,14 @@ end
     @test allocs == 0
 end
 
+@testset "Issue 29" begin
+    model = Model(defaultoptimizer())
+    x = Variable(model)
+    @constraint model [x] >= [0]
+    @objective model Minimize x^2 + 1
+    solve!(model)
+    @test value(model, x) ≈ 0 atol=1e-8
+    @test objectivevalue(model) ≈ 1 atol=1e-8
+end
+
 end # module

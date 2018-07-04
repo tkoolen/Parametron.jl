@@ -291,4 +291,11 @@ end
     @test @allocated(expr()) == 0
 end
 
+@testset "issue 23, fully qualified names" begin
+    model = MockModel()
+    p = Parameter{Int}(() -> 2, model)
+    expr = @expression Base.:+(2, p)
+    @test expr() == 4
+end
+
 end

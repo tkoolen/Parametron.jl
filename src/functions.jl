@@ -101,6 +101,9 @@ Base.zero(::Type{AffineFunction{T}}) where {T} = AffineFunction(LinearTerm{T}[],
 zero!(f::AffineFunction) = (empty!(f.linear); f.constant[] = 0; f)
 
 Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
+
+Base.convert(::Type{AffineFunction{T}}, x::AffineFunction{T}) where {T} = x
+Base.convert(::Type{AffineFunction{T}}, x::AffineFunction) where {T} = AffineFunction{T}(x)
 Base.convert(::Type{AffineFunction{T}}, x::Number) where {T} = AffineFunction(LinearTerm{T}[], convert(T, x))
 Base.convert(::Type{AffineFunction{T}}, x::LinearTerm) where {T} = AffineFunction([convert(LinearTerm{T}, x)], zero(T))
 Base.convert(::Type{AffineFunction{T}}, x::Variable) where {T} = AffineFunction{T}(x)
@@ -155,9 +158,14 @@ Base.hash(x::QuadraticFunction, h::UInt) = (h = hash(x.quadratic, h); hash(x.aff
 Base.zero(::Type{QuadraticFunction{T}}) where {T} = QuadraticFunction(QuadraticTerm{T}[], zero(AffineFunction{T}))
 zero!(f::QuadraticFunction) = (empty!(f.quadratic); zero!(f.affine); f)
 
+Base.convert(::Type{QuadraticFunction{T}}, x::QuadraticFunction{T}) where {T} = x
+Base.convert(::Type{QuadraticFunction{T}}, x::QuadraticFunction) where {T} = QuadraticFunction{T}(x)
 Base.convert(::Type{QuadraticFunction{T}}, x::QuadraticTerm) where {T} =
     QuadraticFunction([convert(QuadraticTerm{T}, x)], zero(AffineFunction{T}))
-
+Base.convert(::Type{QuadraticFunction{T}}, x::AffineFunction) where {T} = QuadraticFunction{T}(x)
+Base.convert(::Type{QuadraticFunction{T}}, x::Number) where {T} = QuadraticFunction{T}(x)
+Base.convert(::Type{QuadraticFunction{T}}, x::LinearTerm) where {T} = QuadraticFunction{T}(x)
+Base.convert(::Type{QuadraticFunction{T}}, x::Variable) where {T} = QuadraticFunction{T}(x)
 
 function Base.show(io::IO, f::QuadraticFunction)
     for term in f.quadratic
@@ -330,6 +338,8 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
         Base.$op(x::QuadraticTerm{T}, y::QuadraticTerm{T}) where {T} = QuadraticFunction([x, $op(y)], zero(AffineFunction{T}))
         Base.$op(x::QuadraticTerm, y::QuadraticTerm) = +(promote(x, y)...)
         Base.$op(x::QuadraticTerm{T}, y::LinearTerm{T}) where {T} = $fun!(QuadraticFunction(x), y)
+        Base.$op(x::QuadraticTerm{T}, y::S) where {T, S<:Number} = $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
+        Base.$op(x::S, y::QuadraticTerm{T}) where {T, S<:Number} = $fun!(QuadraticFunction{promote_type(T, S)}(x), y)
         Base.$op(x::LinearTerm{T}, y::QuadraticTerm{T}) where {T} = $fun!(QuadraticFunction(x), y)
         Base.$op(x::LinearTerm{T}, y::QuadraticTerm{S}) where {T, S} = (R = promote_type(T, S); $op(LinearTerm{R}(x), QuadraticTerm{R}(y)))
         Base.$op(x::QuadraticTerm{T}, y::LinearTerm{S}) where {T, S} = (R = promote_type(T, S); $op(QuadraticTerm{R}(x), LinearTerm{R}(y)))

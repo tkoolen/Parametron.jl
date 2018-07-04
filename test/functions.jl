@@ -79,6 +79,7 @@ end
 @testset "QuadraticFunction" begin
     x = Variable.(1 : 2)
     vals = Dict(zip(x, [1.0, 2.0]))
+    intvals = Dict(zip(x, [1, 2]))
     xvals = getindex.(vals, x)
     y = zero(QuadraticFunction{Int})
 
@@ -115,6 +116,12 @@ end
     @test f5(vals) == 3 * xvals[1] * xvals[2] + 0.5 * xvals[2]
 
     @test QuadraticFunction{Int}(x[1]) == QuadraticFunction(x[1] + 0)
+
+    @test convert(QuadraticFunction{Float64}, 1)(intvals) === 1.0
+    @test convert(QuadraticFunction{Float64}, x[1])(intvals) === vals[x[1]]
+    @test convert(QuadraticFunction{Float64}, 3 * x[1])(intvals) === 3 * vals[x[1]]
+    @test convert(QuadraticFunction{Float64}, x[1] + x[2] + 2)(intvals) === vals[x[1]] + vals[x[2]] + 2
+    @test convert(QuadraticFunction{Float64}, x[1]^2 + x[2]^2)(intvals) === vals[x[1]]^2 + vals[x[2]]^2
 end
 
 @testset "matvecmul!" begin

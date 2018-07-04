@@ -1,5 +1,8 @@
 import SimpleQP
 
+"""
+A 'mock model' used only for demonstrations and tests.
+"""
 struct MockModel
     params::Vector{SimpleQP.Parameter}
     nextvarindex::Base.RefValue{Int}

@@ -49,19 +49,43 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
         new{T, O}(params, backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
     end
 end
+
+"""
+$(SIGNATURES)
+
+Create a new `Model`, representing an optimization problem to be solved
+by the optimizer `optimizer` (a `MathOptInterface.AbstractOptimizer`).
+"""
 Model(optimizer::MOI.AbstractOptimizer) = Model{Float64}(optimizer)
 
 Base.show(io::IO, m::Model{T, O}) where {T, O} = print(io, "Model{$T, $O}(…)")
 
+"""
+$(SIGNATURES)
+
+Mark all parameters associated with the model as 'dirty' (out of date),
+meaning they must be updated upon their next evaluation.
+"""
 setdirty!(model::Model) = foreach(setdirty!, model.params)
+
 addparameter!(model::Model, param::Parameter) = (push!(model.params, param); param)
 
+"""
+$(SIGNATURES)
+
+Create a new decision variable (`Variable`) associated with the model.
+"""
 function Variable(m::Model)
     m.initialized && error("Model has already been initialized.")
     index = MOI.addvariable!(m.backend)
     Variable(index)
 end
 
+"""
+$(SIGNATURES)
+
+Set the objective function and optimization sense (`Minimize` or `Maximize`).
+"""
 function setobjective!(m::Model{T}, sense::Sense, expr) where T
     m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
     m.objective = Objective{T}(sense, expr)
@@ -106,6 +130,14 @@ function mapindices(m::Model, idxmap)
     end
 end
 
+"""
+$(SIGNATURES)
+
+Copy the problem to be solved to the optimizer.
+
+Users should generally not need to call this function directly, as it is automatically
+called the first time [`solve!`](@ref) is called on a `Model`.
+"""
 @noinline function initialize!(m::Model)
     result = MOI.copy!(m.optimizer, m.backend)
     if result.status == MOI.CopySuccess
@@ -129,6 +161,14 @@ function update!(constraint::Constraint, m::Model)
     nothing
 end
 
+"""
+$(SIGNATURES)
+
+Re-evaluate the expressions used to build the constraints and objective function of `Model` `m`.
+
+Users should generally not need to call this function directly, as it is automatically
+called in [`solve!`](@ref).
+"""
 function update!(m::Model)
     setdirty!(m)
     update!(m.objective, m)
@@ -144,6 +184,12 @@ function update!(m::Model)
     nothing
 end
 
+"""
+$(SIGNATURES)
+
+Solve the model `m`. (Re-)evaluate constraint and objective expressions, update the
+optimizer's internal representation of the problem, and start the optimization procedure.
+"""
 function solve!(m::Model)
     if !m.initialized
         initialize!(m)
@@ -154,12 +200,57 @@ function solve!(m::Model)
     nothing
 end
 
+"""
+$(SIGNATURES)
+
+Return the value of variable `x` as determined by the optimizer.
+"""
 value(m::Model, x::Variable) = MOI.get(m.optimizer, MOI.VariablePrimal(), m.user_var_to_optimizer[x.index])
+
+"""
+$(SIGNATURES)
+
+Return the value of the objective function at the solution found by the optimizer.
+"""
 objectivevalue(m::Model) = MOI.get(m.optimizer, MOI.ObjectiveValue())
+
+"""
+$(SIGNATURES)
+
+Return the termination status of the solver.
+"""
 terminationstatus(m::Model) = MOI.get(m.optimizer, MOI.TerminationStatus())
+
+"""
+$(SIGNATURES)
+
+Return information regarding the primal of the problem.
+"""
 primalstatus(m::Model) = MOI.get(m.optimizer, MOI.PrimalStatus())
+
+"""
+$(SIGNATURES)
+
+Return information regarding the dual of the problem.
+"""
 dualstatus(m::Model) = MOI.get(m.optimizer, MOI.DualStatus())
 
+"""
+$(SIGNATURES)
+
+Add a constraint to the model using operators `==`, `<=`, or `>=`.
+
+# Examples
+
+Let `model` be a `Model` instance. The constraint `x >= zeros(2)` can
+be added as follows:
+
+```julia
+julia> x = [Variable(model) for i = 1 : 2];
+
+julia> @constraint(model, x >= zeros(2))
+```
+"""
 macro constraint(model, expr)
     addcon = if @capture(expr, >=(lhs_, rhs_))
         :(SimpleQP.add_nonnegative_constraint!)
@@ -175,6 +266,21 @@ macro constraint(model, expr)
     end
 end
 
+"""
+$(SIGNATURES)
+
+Set the objective function of the model.
+
+# Examples
+
+Let `model` be a `Model` instance. The objective 'minimize x ⋅ x' can
+be added as follows:
+
+```julia
+julia> x = [Variable(model) for i = 1 : 2];
+
+julia> @objective model Minimize x ⋅ x
+"""
 macro objective(model, sense, expr)
     quote
         setobjective!($(esc(model)), $(esc(sense)), @expression $(esc(expr)))

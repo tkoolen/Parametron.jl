@@ -1,3 +1,39 @@
+"""
+$(TYPEDEF)
+
+Represents an expression that may be evaluated at a later time, by storing
+both a function, `f`, and a tuple of function arguments, `args`.
+
+`LazyExpression`s are typically not manually constructed by a user, and hence
+are not exported. Instead, `LazyExpression`s should be created using the [`@expression`]
+macro.
+
+A `LazyExpression` may be evaluated by simply calling it with no arguments.
+
+# Example
+
+```julia
+julia> a = ones(2); b = ones(2);
+
+julia> expr = SimpleQP.LazyExpression(+, a, b)
+LazyExpression{Base.#+, …}(…)
+
+julia> expr()
+2-element Array{Float64,1}:
+ 2.0
+ 2.0
+
+julia> b .= 2
+2-element Array{Float64,1}:
+ 2.0
+ 2.0
+
+julia> expr()
+2-element Array{Float64,1}:
+ 3.0
+ 3.0
+```
+"""
 struct LazyExpression{F, A}
     f::F
     args::A
@@ -34,12 +70,77 @@ Base.convert(::Type{WrappedExpression{T}}, expr::WrappedExpression{T}) where {T}
 Base.convert(::Type{WrappedExpression{T}}, value::T) where {T} =
     convert(WrappedExpression{T}, LazyExpression(identity, value))
 
+"""
+$(SIGNATURES)
+
+Wrap a `LazyExpression` in a `FunctionWrappers.FunctionWrapper` and return a new
+`LazyExpression` with the `FunctionWrapper` as the function `f` and an empty tuple
+as the arguments `arg`.
+
+The type parameters of the returned `LazyFunction` depend only on the type of the value
+returned by `expr`. This is useful when a common interface is needed for different
+`LazyExpression`s that share the same return value type.
+"""
 function wrap(expr::LazyExpression)
     T = typeof(expr())
     convert(WrappedExpression{T}, expr)
 end
 
+
 # expression macro
+"""
+$(SIGNATURES)
+
+Create a new [`LazyExpression`](@ref) and apply optimizations to it to reduce allocations
+and improve performance.
+
+Expressions that do not depend on [`Parameter`](@ref)s or other [`LazyExpression`]s
+are simply evaluated straight away.
+
+# Examples
+
+Creating an expression that represents `p * x1`, where `p` is a parameter that always evaluates to 2:
+
+```julia
+julia> model = SimpleQP.MockModel(); # a 'mock model' used only for demonstrations and tests
+
+julia> x1 = Variable(model)
+SimpleQP.Functions.Variable(1)
+
+julia> p = Parameter{Int}(() -> 2, model)
+Parameter{Int64, …}(…)
+
+julia> expr = @expression p * x1
+LazyExpression{FunctionWrapper{…}(LazyExpression{Base.#*, …}(…))}(…)
+
+julia> expr()
+2 * x1
+```
+
+Creating an expression that represents `p ⋅ x`, where `p` is a parameter that evaluates to [1, 2] and
+`x` is a vector of two variables:
+
+```julia
+julia> model = SimpleQP.MockModel();
+
+julia> x = Variable.(1 : 2);
+
+julia> p = Parameter(identity, [1, 2], model)
+Parameter{Array{Int64,1}, …}(…)
+
+julia> expr = @expression p ⋅ x
+LazyExpression{FunctionWrapper{…}(LazyExpression{SimpleQP.Functions.#vecdot!, …}(…))}(…)
+
+julia> expr()
+1 * x1 + 2 * x2 + 0
+
+julia> @allocated expr()
+0
+```
+
+Note that evaluating the expression does not allocate, because the ⋅ operation is
+optimized and transformed into a call to the in-place `Functions.vecdot!` function.
+"""
 macro expression(expr)
     # We call expand(expr) to lower the code and make some useful conversions like:
     #   * [x; y] turns from Expr(:vcat, :x, :y) into Expr(:call, :vcat, :x, :y)

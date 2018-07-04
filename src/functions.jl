@@ -1,3 +1,39 @@
+"""
+The `Functions` module provides types that represent decision variables and
+functions of these decision variables that possess a certain structure,
+such as being affine or quadratic in the decision variables.
+
+Various operators are overloaded to make it easy to construct such functions.
+
+# Example
+
+```julia
+julia> x, y = Variable.(1 : 2)
+2-element Array{SimpleQP.Functions.Variable,1}:
+ SimpleQP.Functions.Variable(1)
+ SimpleQP.Functions.Variable(2)
+
+julia> fun = 3 * (x + y) + 4
+3 * x1 + 3 * x2 + 4
+
+julia> typeof(fun)
+SimpleQP.Functions.AffineFunction{Int64}
+
+julia> fun.linear
+2-element Array{SimpleQP.Functions.LinearTerm{Int64},1}:
+
+ 3 * x1
+ 3 * x2
+
+julia> fun.constant
+Base.RefValue{Int64}(4)
+```
+
+The `Functions` module also provides in-place versions of certain common operations, e.g.,
+[`add!`](@ref), [`subtract!`](@ref), and [`vecdot!`](@ref), which may be used
+to evaluate operations performed on the functions into a preallocated destination
+without any heap allocations.
+"""
 module Functions
 
 export
@@ -9,6 +45,7 @@ export
 
 using Compat
 using Compat.LinearAlgebra
+using DocStringExtensions
 
 @static if VERSION >= v"0.7-"
     const TransposeVector{T, V<:AbstractVector{T}} = Transpose{T, V}
@@ -23,6 +60,12 @@ const LinearAlgebra = Compat.LinearAlgebra
 coefftype(::Type{T}) where {T<:Number} = T
 
 # Variable
+
+"""
+$(TYPEDEF)
+
+Represents a single decision variable.
+"""
 struct Variable
     index::Int
 end
@@ -31,6 +74,12 @@ coefftype(::Type{Variable}) = Int
 
 
 # LinearTerm, QuadraticTerm
+
+"""
+$(TYPEDEF)
+
+Represents a scalar linear term, i.e. a decision variable scaled by a coefficient.
+"""
 struct LinearTerm{T}
     coeff::T
     var::Variable
@@ -44,6 +93,11 @@ Base.:*(var::Variable, coeff::Number) = LinearTerm(coeff, var)
 Base.promote_rule(::Type{LinearTerm{T}}, ::Type{Variable}) where {T} = LinearTerm{T}
 Base.convert(::Type{LinearTerm{T}}, var::Variable) where {T} = LinearTerm{T}(var)
 
+"""
+$(TYPEDEF)
+
+Represents a scalar quadratic term, i.e. the product of two decision variables scaled by a coefficient.
+"""
 struct QuadraticTerm{T}
     coeff::T
     rowvar::Variable
@@ -72,6 +126,29 @@ end
 
 
 # AffineFunction
+"""
+$(TYPEDEF)
+
+A scalar affine function represented by a sum of [`LinearTerm`](@ref)s and a constant.
+
+`AffineFunction` overloads the call operator, which can be used to evalute the function
+given values for the decision variables. The call operator takes an `Associative{Variable, T}`
+collection, which associates values with variables.
+
+# Examples
+
+```julia
+julia> x, y = Variable.(1 : 2);
+
+julia> affinefun = 2 * x + 3 * y + 4
+2 * x1 + 3 * x2 + 4
+
+julia> vals = Dict(x => 4, y => -3);
+
+julia> affinefun(vals)
+3
+```
+"""
 struct AffineFunction{T}
     linear::Vector{LinearTerm{T}}
     constant::Base.RefValue{T}
@@ -127,6 +204,30 @@ end
 
 
 # QuadraticFunction
+
+"""
+$(TYPEDEF)
+
+A scalar quadratic function represented by a sum of [`QuadraticTerm`](@ref)s and an [`AffineFunction`](@ref).
+
+`QuadraticFunction` overloads the call operator, which can be used to evalute the function
+given values for the decision variables. The call operator takes an `Associative{Variable, T}`
+collection, which associates values with variables.
+
+# Examples
+
+```julia
+julia> x, y = Variable.(1 : 2);
+
+julia> quadraticfun = 2 * x^2 + 3 * x * y - 2 * y + 4
+2 * x1 * x1 + 3 * x1 * x2 + -2 * x2 + 4
+
+julia> vals = Dict(x => 4, y => -3);
+
+julia> quadraticfun(vals)
+6
+```
+"""
 struct QuadraticFunction{T}
     quadratic::Vector{QuadraticTerm{T}}
     affine::AffineFunction{T}
@@ -208,6 +309,13 @@ end
 
 
 # add!
+"""
+$(SIGNATURES)
+
+Add `x` to `f`, modifying `f`.
+"""
+function add! end
+
 add!(f::AffineFunction, x::Number) = (f.constant[] += x; f)
 add!(f::AffineFunction{T}, x::Variable) where {T} = add!(f, LinearTerm{T}(x))
 add!(f::AffineFunction, x::LinearTerm) = (push!(f.linear, x); f)
@@ -221,6 +329,13 @@ add!(dest, x, y) = (copyto!(dest, x); add!(dest, y); dest)
 
 
 # subtract!
+"""
+$(SIGNATURES)
+
+Subtract `x` from `f`, modifying `f`.
+"""
+function subtract! end
+
 subtract!(f::AffineFunction, x::Number) = (f.constant[] -= x; f)
 subtract!(f::AffineFunction{T}, x::Variable) where {T} = subtract!(f, LinearTerm{T}(x))
 subtract!(f::AffineFunction, x::LinearTerm) = add!(f, -x)
@@ -253,6 +368,13 @@ subtract!(dest, x, y) = (copyto!(dest, x); subtract!(dest, y); dest)
 
 
 # muladd!
+"""
+$(SIGNATURES)
+
+Multiply `x` by `y` and add the result to `dest`.
+"""
+function muladd! end
+
 function muladd!(dest::AffineFunction, x::AffineFunction, y::Number)
     offset = length(dest.linear)
     resize!(dest.linear, offset + length(x.linear))
@@ -378,6 +500,14 @@ end
 
 # Array operations
 # TODO: reduce code duplication
+
+"""
+$(SIGNATURES)
+
+Take the dot product of vectors `x` and `y`, storing the result in `dest`.
+"""
+function vecdot! end
+
 function vecdot!(dest, x::AbstractVector, y::AbstractVector)
     # fallback
     vecdot(x, y)
@@ -425,6 +555,20 @@ vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Union{Variable, <:LinearTer
 vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::AbstractVector{<:AffineFunction}) =
     quadvecdot!(dest, x, y)
 
+"""
+$(SIGNATURES)
+
+Add vector `x` to vector `y`, storing the result in `dest`.
+"""
+function vecadd! end
+
+"""
+$(SIGNATURES)
+
+Subtract vector `y` from vector `x`, storing the result in `dest`.
+"""
+function vecsubtract! end
+
 for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
     @eval begin
         function $vecfun!(dest::AbstractVector{AffineFunction{T}}, x::AbstractVector, y::AbstractVector) where T
@@ -439,6 +583,13 @@ for (vecfun!, scalarfun!) in [(:vecadd!, :add!), (:vecsubtract!, :subtract!)]
         end
     end
 end
+
+"""
+$(SIGNATURES)
+
+Compute the matrix-vector product `A * x`, storing the result in `y`.
+"""
+function matvecmul! end
 
 function matvecmul!(
         y::AbstractVector{AffineFunction{T}},
@@ -489,6 +640,12 @@ function matvecmul!(
     y
 end
 
+"""
+$(SIGNATURES)
+
+Compute the bilinear form `transpose(x) * A * y`, storing the result in `dest`.
+"""
+function bilinearmul! end
 
 function bilinearmul!(
         dest::QuadraticFunction,
@@ -513,6 +670,13 @@ end
 function Base.:*(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T<:LinearAlgebra.BlasFloat}
     matvecmul!(similar(x, AffineFunction{T}, size(A, 1)) , A, x)
 end
+
+"""
+$(SIGNATURES)
+
+Scale a vector by a number and store the result in `dest`.
+"""
+function scale! end
 
 function scale!(
     dest::AbstractVector{<:LinearTerm},
@@ -597,7 +761,16 @@ function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{Linea
     vecdot!(zero(QuadraticFunction{T}), x, y)
 end
 
-# vcat
+
+# vcat!
+
+"""
+$(SIGNATURES)
+
+Vertically concatenate a number of vectors, storing the result in `y`.
+"""
+function vcat! end
+
 function _vcat!(dest::AbstractVector{<:AffineFunction},
                 i::Integer)
     @boundscheck i == lastindex(dest) + 1 || throw(DimensionMismatch())
@@ -624,6 +797,5 @@ function vcat!(y::AbstractVector{<:AffineFunction},
     _vcat!(y, 1, args...)
     y
 end
-
 
 end

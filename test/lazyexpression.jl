@@ -277,6 +277,13 @@ end
     @test ex1() isa AffineFunction
     @test @allocated(ex1()) == 0
     @test @allocated(ex2()) == 0
+
+    ex3 = @expression dot(x + p, p)
+    ex4 = @expression dot(p, x + p)
+    @test ex3() == ex4() == dot(p(), x + p())
+    @test ex3() isa AffineFunction
+    @test @allocated(ex3()) == 0
+    @test @allocated(ex4()) == 0
 end
 
 @testset "adjoint optimization" begin

@@ -258,6 +258,20 @@ end
     @test allocs == 0
 end
 
+@testset "vecdot optimization" begin
+    m = MockModel()
+    x = Variable.(1:3)
+    p = Parameter(m) do
+        SVector(1., 2., 3.)
+    end
+    ex1 = @expression dot(x, p)
+    ex2 = @expression dot(p, x)
+    @test ex1() == ex2() == dot(p(), x)
+    @test ex1() isa AffineFunction
+    @test @allocated(ex1()) == 0
+    @test @allocated(ex2()) == 0
+end
+
 @testset "issue 26" begin
     model = MockModel()
     n = 2

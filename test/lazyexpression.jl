@@ -242,6 +242,13 @@ end
     expr = @expression [dot(p, x)]
     @test expr() == [dot(p(), x)]
     @test @allocated(expr()) == 0
+
+    p2 = Parameter(m) do
+        2.0
+    end
+    ex2 = @expression [p2]
+    @test ex2() == [2.0]
+    @test @allocated(ex2()) == 0
 end
 
 @testset "convert optimization" begin

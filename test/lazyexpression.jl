@@ -258,6 +258,37 @@ end
     @test allocs == 0
 end
 
+struct MyWrapper{T}
+    x::T
+end
+
+function allocations_in_local_scope(x)
+    @allocated x()
+end
+
+@testset "Core.getfield optimization" begin
+    @test SimpleQP.unwrap_symbol(:(:p)) == :p
+    @test SimpleQP.unwrap_symbol(esc(:(:p))) == :p
+    @test_throws ArgumentError SimpleQP.unwrap_symbol(:(x + 1))
+
+    m = MockModel()
+    model = SimpleQP.MockModel()
+    p = Parameter(model) do
+        MyWrapper(rand())
+    end
+    ex1 = @expression p.x
+    @test ex1() == p().x
+    setdirty!(p)
+    @test ex1() == p().x
+    @test allocations_in_local_scope(ex1) == 0
+
+    ex2 = @expression p.x + 1
+    @test ex2() == p().x + 1
+    setdirty!(p)
+    @test ex2() == p().x + 1
+    @test allocations_in_local_scope(ex2) == 0
+end
+
 @testset "issue 26" begin
     model = MockModel()
     n = 2

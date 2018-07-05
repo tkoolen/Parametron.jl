@@ -279,6 +279,22 @@ end
     @test @allocated(ex2()) == 0
 end
 
+@testset "adjoint optimization" begin
+    m = MockModel()
+    x = Variable.(1:2)
+    p = Parameter(m) do
+        @SMatrix [1. 2.; 3. 4.]
+    end
+    ex = @expression adjoint(p) * x
+    @test ex() == adjoint(p()) * x
+    @test @allocated(ex()) == 0
+
+    p2 = Parameter(rand!, zeros(2, 2), m)
+    ex2 = @expression adjoint(p2) * x
+    @test ex2() == adjoint(p2()) * x
+    @test @allocated(ex2()) == 0
+end
+
 @testset "issue 26" begin
     model = MockModel()
     n = 2

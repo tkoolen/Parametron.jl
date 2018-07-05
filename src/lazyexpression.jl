@@ -188,6 +188,19 @@ function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractMatrix{T}}, 
     LazyExpression(Functions.matvecmul!, dest, A, x)
 end
 
+function optimize(expr::LazyExpression{typeof(adjoint)}, ::Type{<:AbstractMatrix})
+    LazyExpression(similar(deepcopy(expr())), expr.args...) do dest, A
+        @boundscheck indices(A, 1) == indices(dest, 2) || throw(DimensionMismatch())
+        @boundscheck indices(A, 2) == indices(dest, 1) || throw(DimensionMismatch())
+        for j in indices(A, 2)
+            for i in indices(A, 1)
+                dest[j, i] = A[i, j]
+            end
+        end
+        dest
+    end
+end
+
 function optimize(expr::LazyExpression{typeof(*)},
         ::Type{<:TransposeVector{Variable}},
         ::Type{<:AbstractMatrix{T}},

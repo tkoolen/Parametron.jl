@@ -147,7 +147,13 @@ macro expression(expr)
     #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
     postwalk(expand(expr)) do x
         if @capture(x, f_(args__))
-            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+            if f == esc(GlobalRef(Core, :getfield)) && length(args) == 2 # TODO: different in v0.7?
+                container, field = args
+                field = unwrap_symbol(field)
+                :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(c -> c.$field, $container)))
+            else
+                :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+            end
         else
             if x isa Expr && x.head ∉ [:block, :line]
                 buf = IOBuffer()
@@ -163,6 +169,22 @@ macro expression(expr)
         end
     end
 end
+
+"""
+Strip down an escaped and/or quoted expression containing
+a single Symbol and return just that inner Symbol
+"""
+function unwrap_symbol(ex::Expr)
+    if ex.head ∈ [:escape, :quote]
+        return unwrap_symbol(ex.args[1])
+    else
+        throw(ArgumentError("Can't unwrap this expression to yield a single symbol: $ex"))
+    end
+end
+unwrap_symbol(q::QuoteNode) = unwrap_symbol(q.value)
+unwrap_symbol(s::Symbol) = s
+
+
 
 
 # Optimizations

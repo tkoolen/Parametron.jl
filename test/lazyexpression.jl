@@ -342,4 +342,33 @@ end
     @test expr() == 4
 end
 
+struct MyWrapper{T}
+    x::T
+end
+
+function allocations_in_local_scope(x)
+    @allocated x()
+end
+
+@testset "getfield optimization" begin
+    m = MockModel()
+    model = SimpleQP.MockModel()
+    p = Parameter(model) do
+        MyWrapper(rand())
+    end
+    ex1 = @expression p.x
+    @test ex1() == p().x
+    setdirty!(p)
+    @test ex1() == p().x
+    setdirty!(p)
+    @test allocations_in_local_scope(ex1) == 0
+
+    ex2 = @expression p.x + 1
+    @test ex2() == p().x + 1
+    setdirty!(p)
+    @test ex2() == p().x + 1
+    setdirty!(p)
+    @test allocations_in_local_scope(ex2) == 0
+end
+
 end

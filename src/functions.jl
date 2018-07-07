@@ -514,6 +514,17 @@ function vecdot!(dest, x::AbstractVector, y::AbstractVector)
 end
 
 function vecdot!(dest::AffineFunction,
+        x::AbstractVector{<:Union{<:Number, <:AffineFunction}},
+        y::AbstractVector{<:Union{<:Number, <:AffineFunction}})
+    zero!(dest)
+    @boundscheck indices(x) == indices(y) || throw(DimensionMismatch())
+    @inbounds for i in eachindex(x)
+        muladd!(dest, x[i], y[i])
+    end
+    dest
+end
+
+function vecdot!(dest::AffineFunction,
         x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}},
         y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}})
     zero!(dest)

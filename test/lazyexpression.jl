@@ -242,6 +242,13 @@ end
     expr = @expression [dot(p, x)]
     @test expr() == [dot(p(), x)]
     @test @allocated(expr()) == 0
+
+    p2 = Parameter(m) do
+        2.0
+    end
+    ex2 = @expression [p2]
+    @test ex2() == [2.0]
+    @test @allocated(ex2()) == 0
 end
 
 @testset "convert optimization" begin
@@ -256,6 +263,43 @@ end
     @test expr() isa Vector{AffineFunction{Int}}
     allocs = @allocated expr()
     @test allocs == 0
+end
+
+@testset "vecdot optimization" begin
+    m = MockModel()
+    x = Variable.(1:3)
+    p = Parameter(m) do
+        SVector(1., 2., 3.)
+    end
+    ex1 = @expression dot(x, p)
+    ex2 = @expression dot(p, x)
+    @test ex1() == ex2() == dot(p(), x)
+    @test ex1() isa AffineFunction
+    @test @allocated(ex1()) == 0
+    @test @allocated(ex2()) == 0
+
+    ex3 = @expression dot(x + p, p)
+    ex4 = @expression dot(p, x + p)
+    @test ex3() == ex4() == dot(p(), x + p())
+    @test ex3() isa AffineFunction
+    @test @allocated(ex3()) == 0
+    @test @allocated(ex4()) == 0
+end
+
+@testset "adjoint optimization" begin
+    m = MockModel()
+    x = Variable.(1:2)
+    p = Parameter(m) do
+        @SMatrix [1. 2.; 3. 4.]
+    end
+    ex = @expression adjoint(p) * x
+    @test ex() == adjoint(p()) * x
+    @test @allocated(ex()) == 0
+
+    p2 = Parameter(rand!, zeros(2, 2), m)
+    ex2 = @expression adjoint(p2) * x
+    @test ex2() == adjoint(p2()) * x
+    @test @allocated(ex2()) == 0
 end
 
 @testset "issue 26" begin

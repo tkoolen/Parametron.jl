@@ -268,3 +268,7 @@ function optimize(expr::LazyExpression{typeof(Base.vect)}, ::Type{<:Union{Variab
         dest
     end
 end
+
+function optimize(expr::LazyExpression{typeof(getfield), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+    LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+end

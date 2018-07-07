@@ -798,4 +798,9 @@ function vcat!(y::AbstractVector{<:AffineFunction},
     y
 end
 
+
+# GetField
+struct GetField{Field} end
+(::GetField{Field})(arg) where {Field} = getfield(arg, Field)
+
 end

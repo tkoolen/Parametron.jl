@@ -85,6 +85,8 @@ struct LinearTerm{T}
     var::Variable
 end
 LinearTerm{T}(var::Variable) where {T} = LinearTerm{T}(one(T), var)
+LinearTerm{T}(x::LinearTerm{T}) where {T} = x
+LinearTerm{T}(x::LinearTerm) where {T} = LinearTerm{T}(T(x.coeff), x.var)
 Base.show(io::IO, term::LinearTerm) = print(io, term.coeff, " * ", "x", term.var.index)
 getcoeff(term::LinearTerm) = term.coeff
 setcoeff(term::LinearTerm, coeff) = LinearTerm(coeff, term.var)
@@ -103,6 +105,8 @@ struct QuadraticTerm{T}
     rowvar::Variable
     colvar::Variable
 end
+QuadraticTerm{T}(x::QuadraticTerm{T}) where {T} = x
+QuadraticTerm{T}(x::QuadraticTerm) where {T} = QuadraticTerm{T}(T(x.coeff), x.rowvar, x.colvar)
 Base.show(io::IO, term::QuadraticTerm) = print(io, term.coeff, " * x", term.rowvar.index, " * x", term.colvar.index)
 getcoeff(term::QuadraticTerm) = term.coeff
 setcoeff(term::QuadraticTerm, coeff) = QuadraticTerm(coeff, term.rowvar, term.colvar)
@@ -132,7 +136,7 @@ $(TYPEDEF)
 A scalar affine function represented by a sum of [`LinearTerm`](@ref)s and a constant.
 
 `AffineFunction` overloads the call operator, which can be used to evalute the function
-given values for the decision variables. The call operator takes an `Associative{Variable, T}`
+given values for the decision variables. The call operator takes an `AbstractDict{Variable, T}`
 collection, which associates values with variables.
 
 # Examples
@@ -160,9 +164,9 @@ AffineFunction(linear::Vector{LinearTerm{T}}, constant::S) where {T, S<:Number} 
     AffineFunction{promote_type(T, S)}(linear, constant)
 
 AffineFunction{T}(x::AffineFunction) where {T} = AffineFunction{T}(x.linear, x.constant[])
-AffineFunction{T}(x::LinearTerm) where {T} = AffineFunction{T}([LinearTerm{T}(x)], Ref(zero(T)))
+AffineFunction{T}(x::LinearTerm) where {T} = AffineFunction{T}([LinearTerm{T}(x)], zero(T))
 AffineFunction{T}(x::Variable) where {T} = AffineFunction{T}(LinearTerm{T}(x))
-AffineFunction{T}(x::Number) where {T} = AffineFunction{T}(LinearTerm{T}[], Ref(T(x)))
+AffineFunction{T}(x::Number) where {T} = AffineFunction{T}(LinearTerm{T}[], T(x))
 
 AffineFunction(x::AffineFunction{T}) where {T} = AffineFunction{T}(x)
 AffineFunction(x::LinearTerm{T}) where {T} = AffineFunction{T}(x)
@@ -177,7 +181,9 @@ Base.hash(x::AffineFunction, h::UInt) = (h = hash(x.linear, h); hash(x.constant,
 Base.zero(::Type{AffineFunction{T}}) where {T} = AffineFunction(LinearTerm{T}[], Ref(zero(T)))
 zero!(f::AffineFunction) = (empty!(f.linear); f.constant[] = 0; f)
 
-Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
+if VERSION < v"0.7-"
+    Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
+end
 
 Base.convert(::Type{AffineFunction{T}}, x::AffineFunction{T}) where {T} = x
 Base.convert(::Type{AffineFunction{T}}, x::AffineFunction) where {T} = AffineFunction{T}(x)
@@ -192,7 +198,7 @@ function Base.show(io::IO, f::AffineFunction)
     print(io, f.constant[])
 end
 
-function (f::AffineFunction{T})(vals::Associative{Variable, S}) where {T, S}
+function (f::AffineFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     R′ = Base.promote_op(*, T, S)
     R = Base.promote_op(+, R′, R′)
     ret = convert(R, f.constant[])
@@ -211,7 +217,7 @@ $(TYPEDEF)
 A scalar quadratic function represented by a sum of [`QuadraticTerm`](@ref)s and an [`AffineFunction`](@ref).
 
 `QuadraticFunction` overloads the call operator, which can be used to evalute the function
-given values for the decision variables. The call operator takes an `Associative{Variable, T}`
+given values for the decision variables. The call operator takes an `AbstractDict{Variable, T}`
 collection, which associates values with variables.
 
 # Examples
@@ -275,7 +281,7 @@ function Base.show(io::IO, f::QuadraticFunction)
     print(io, f.affine)
 end
 
-function (f::QuadraticFunction{T})(vals::Associative{Variable, S}) where {T, S}
+function (f::QuadraticFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     ret = f.affine(vals)
     for term in f.quadratic
         ret += term.coeff * vals[term.rowvar] * vals[term.colvar]
@@ -486,16 +492,25 @@ Base.:*(x::S, y::AffineFunction{T}) where {T, S<:Number} = muladd!(zero(AffineFu
 Base.:*(x::QuadraticFunction{T}, y::S) where {T, S<:Number} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
 Base.:*(x::S, y::QuadraticFunction{T}) where {T, S<:Number} = muladd!(zero(QuadraticFunction{promote_type(T, S)}), x, y)
 
+Base.:^(x::Variable, p::Integer) = Base.power_by_squaring(x, p)
+Base.:^(x::LinearTerm, p::Integer) = Base.power_by_squaring(x, p)
+Base.:^(x::AffineFunction, p::Integer) = Base.power_by_squaring(x, p)
+
 
 # Number-like interface
 const SimpleQPFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
 Base.transpose(x::SimpleQPFunctions) = x
-Base.dot(x::SimpleQPFunctions, y::SimpleQPFunctions) = x * y
+Compat.LinearAlgebra.dot(x::SimpleQPFunctions, y::SimpleQPFunctions) = x * y
+Compat.LinearAlgebra.dot(x::SimpleQPFunctions, y::Number) = x * y
+Compat.LinearAlgebra.dot(x::Number, y::SimpleQPFunctions) = x * y
+Base.to_power_type(x::SimpleQPFunctions) = x # TODO: remove once https://github.com/JuliaLang/julia/issues/24151 is fixed
 Base.zero(::T) where {T<:SimpleQPFunctions} = zero(T)
 Base.one(::T) where {T<:SimpleQPFunctions} = one(T)
 if VERSION >= v"0.7-"
     Base.adjoint(x::SimpleQPFunctions) = x
+    Base.broadcastable(x::SimpleQPFunctions) = Ref(x)
 end
+Base.conj(x::SimpleQPFunctions) = x
 
 
 # Array operations
@@ -517,7 +532,7 @@ function vecdot!(dest::AffineFunction,
         x::AbstractVector{<:Union{<:Number, <:AffineFunction}},
         y::AbstractVector{<:Union{<:Number, <:AffineFunction}})
     zero!(dest)
-    @boundscheck indices(x) == indices(y) || throw(DimensionMismatch())
+    @boundscheck Compat.axes(x) == Compat.axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(x)
         muladd!(dest, x[i], y[i])
     end
@@ -651,6 +666,13 @@ function matvecmul!(
     y
 end
 
+function matvecmul!(
+        dest::Union{AffineFunction, QuadraticFunction},
+        x::Union{TransposeVector, AdjointVector},
+        y::AbstractVector)
+    vecdot!(dest, parent(x), y)
+end
+
 """
 $(SIGNATURES)
 
@@ -693,7 +715,7 @@ function scale!(
     dest::AbstractVector{<:LinearTerm},
     x::Number,
     y::AbstractVector{Variable})
-    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @boundscheck Compat.axes(dest) == Compat.axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x * y[i]
     end
@@ -704,7 +726,7 @@ function scale!(
     dest::AbstractVector{<:LinearTerm},
     x::AbstractVector{Variable},
     y::Number)
-    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
+    @boundscheck Compat.axes(dest) == Compat.axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x[i] * y
     end
@@ -715,7 +737,7 @@ function scale!(
     dest::AbstractVector{<:AffineFunction},
     x::Number,
     y::AbstractVector{<:AffineFunction})
-    @boundscheck indices(dest) == indices(y) || throw(DimensionMismatch())
+    @boundscheck Compat.axes(dest) == Compat.axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x, y[i])
     end
@@ -726,7 +748,7 @@ function scale!(
     dest::AbstractVector{<:AffineFunction},
     x::AbstractVector{<:AffineFunction},
     y::Number)
-    @boundscheck indices(dest) == indices(x) || throw(DimensionMismatch())
+    @boundscheck Compat.axes(dest) == Compat.axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x[i], y)
     end
@@ -734,7 +756,9 @@ function scale!(
 end
 
 if VERSION >= v"0.7-"
-    error("TODO: implement mul! for 0.7")
+    function LinearAlgebra.mul!(y::StridedVector{AffineFunction{T}}, A::AbstractMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat}
+        matvecmul!(y, A, x)
+    end
 else
     LinearAlgebra.At_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
         At_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), transpose(A), x)

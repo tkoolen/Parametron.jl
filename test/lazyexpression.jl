@@ -2,6 +2,8 @@ module LazyExpressionTest
 
 using Compat
 using Compat.Test
+using Compat.Random
+using Compat.LinearAlgebra
 using SimpleQP
 using StaticArrays
 
@@ -139,7 +141,7 @@ end
     x = Variable.(1 : 3)
     expr = @expression weight * (x ⋅ x)
     vals = Dict(zip(x, [1, 2, 3]))
-    xvals = getindex.(vals, x)
+    xvals = map(var -> vals[var], x)
     @test expr()(vals) == 3 * xvals ⋅ xvals
     allocs = @allocated expr()
     @test allocs == 0
@@ -311,8 +313,8 @@ end
         q[1] = 1
         q[2] = 2
     end
-    expr1 = @expression transpose(x) * eye(Int, n) * x + q' * x
-    expr2 = @expression q' * x + transpose(x) * eye(Int, 2) * x
+    expr1 = @expression transpose(x) * Matrix(I, n, n) * x + q' * x
+    expr2 = @expression q' * x + transpose(x) * Matrix(I, 2, 2) * x
     @test expr1()(vals) ≈ expr2()(vals) atol = 1e-14
 end
 

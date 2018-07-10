@@ -142,24 +142,29 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
-    # We call expand(expr) to lower the code and make some useful conversions like:
-    #   * [x; y] turns from Expr(:vcat, :x, :y) into Expr(:call, :vcat, :x, :y)
-    #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
-    postwalk(expand(expr)) do x
+    postwalk(expr) do x
         if @capture(x, f_(args__))
-            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+            return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
-            if x isa Expr && x.head ∉ [:block, :line]
-                buf = IOBuffer()
-                dump(buf, expr)
-                msg =
-                    """
-                    Unhandled expression head: $(x.head). expr:
-                    $(String(take!(buf)))
-                    """
-                return :(throw(ArgumentError($msg)))
+            if x isa Expr
+                if x.head == :vcat
+                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vcat, $(x.args...))))
+                elseif x.head == :vect
+                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vect, $(x.args...))))
+                elseif x.head == Symbol("'")
+                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.adjoint, $(x.args...))))
+                elseif x.head ∉ [:block, :line]
+                    buf = IOBuffer()
+                    dump(buf, expr)
+                    msg =
+                        """
+                        Unhandled expression head: $(x.head). expr:
+                        $(String(take!(buf)))
+                        """
+                    return :(throw(ArgumentError($msg)))
+                end
             end
-            esc(x)
+            return esc(x)
         end
     end
 end
@@ -190,10 +195,10 @@ end
 
 function optimize(expr::LazyExpression{typeof(adjoint)}, ::Type{<:AbstractMatrix})
     LazyExpression(similar(deepcopy(expr())), expr.args...) do dest, A
-        @boundscheck indices(A, 1) == indices(dest, 2) || throw(DimensionMismatch())
-        @boundscheck indices(A, 2) == indices(dest, 1) || throw(DimensionMismatch())
-        @inbounds for j in indices(A, 2)
-            for i in indices(A, 1)
+        @boundscheck Compat.axes(A, 1) == Compat.axes(dest, 2) || throw(DimensionMismatch())
+        @boundscheck Compat.axes(A, 2) == Compat.axes(dest, 1) || throw(DimensionMismatch())
+        @inbounds for j in Compat.axes(A, 2)
+            for i in Compat.axes(A, 1)
                 dest[j, i] = A[i, j]
             end
         end

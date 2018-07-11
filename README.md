@@ -3,9 +3,9 @@
 [![Build Status](https://travis-ci.org/tkoolen/SimpleQP.jl.svg?branch=master)](https://travis-ci.org/tkoolen/SimpleQP.jl)
 [![codecov.io](http://codecov.io/github/tkoolen/SimpleQP.jl/coverage.svg?branch=master)](http://codecov.io/github/tkoolen/SimpleQP.jl?branch=master)
 
-SimpleQP makes it easy to set up and efficiently (ideally, with *zero* allocations) solve instances of a **parameterized family** of quadratic programs.
+SimpleQP makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of quadratic programs.
 
-As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver is used to solve the following problem:
+As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver to solve the following problem:
 
 ```
 Minimize ||A x - b||^2
@@ -15,28 +15,44 @@ subject to C x = d
 with decision variable vector `x`, and where `A`, `b`, `C`, and `d` are parameters with random values, to be re-sampled each time the problem is re-solved.
 
 Here's the basic problem setup:
+
 ```julia
+# create a MathOptInterface optimizer instance
 using OSQP.MathOptInterfaceOSQP
 optimizer = OSQPOptimizer()
 
+# create a SimpleQP.Model, which holds problem information
 using SimpleQP
 model = Model(optimizer)
-n = 8; m = 2
 
+# create decision variables and parameters
+n = 8; m = 2
 x = [Variable(model) for _ = 1 : n]
 A = Parameter(rand!, zeros(n, n), model)
 b = Parameter(rand!, zeros(n), model)
 C = Parameter(rand!, zeros(m, n), model)
-d = Parameter(rand!, zeros(m), model)
+d = Parameter(zeros(m), model) do d
+    # do syntax makes it easy to create custom Parameters
+    rand!(d)
+    d .*= 2
+end
 
+# the @expression macro can be used to create 'lazy' expressions,
+# which can be used in constraints or the objective function, and
+# can be evaluated at a later time, automatically updating the
+# Parameters in the process (if needed).
 residual = @expression A * x - b
 
+# set the objective function
 # currently need to subtract b ⋅ b to make it so that constant is zero (due to limitation in MOI 0.3)
-@objective(model, Minimize, residual ⋅ residual - b ⋅ b) 
+@objective(model, Minimize, residual ⋅ residual - b ⋅ b)
+
+# add the constraints. You could have multiple @constraint calls
+# as well. ==, <=, and >= are supported.
 @constraint(model, C * x == d)
 ```
 
-after which we can solve the problem and obtain the solution as follows:
+Now that the problem is set up, we can solve and obtain the solution as follows:
 
 ```julia
 julia> solve!(model)
@@ -71,14 +87,14 @@ julia> value.(model, x)
  -0.365181
  -0.119036
  -0.267222
-  1.41655 
-  0.69472 
+  1.41655
+  0.69472
   0.993475
  -0.631194
  -1.02733
 ```
 
-Now note that the next time `solve!` is called, the `rand!` function will be called again to update the parameters `A`, `b`, `C`, and `d`, resulting in a different optimum:
+Note that the next time `solve!` is called, the update functions of our parameters (`A`, `b`, `C`, and `d`) will be called again (*once* for each parameter), resulting in a different optimum:
 
 ```julia
 julia> solve!(model)
@@ -99,12 +115,12 @@ julia> value.(model, x)
   0.509146
   0.667908
  -0.850638
-  0.7877  
-  1.01581 
+  0.7877
+  1.01581
  -0.992135
 ```
 
-Note the solver warm start. Also note that setting up and solving the problem is very efficient:
+Note that the solver is warm-started. Also note that updating the parameters and solving a new QP instance is quite fast:
 
 ```julia
 julia> MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
@@ -115,4 +131,4 @@ julia> @btime solve!($model)
   85.077 μs (0 allocations: 0 bytes)
 ```
 
-
+The performance and lack of allocations stems from the fact that the 'lazy expressions' used for the constraints and objective function are automatically optimized to calls to in-place functions.

@@ -32,7 +32,7 @@ struct IdentityVarMap end
 Base.getindex(::IdentityVarMap, i) = MOI.VariableIndex(i)
 
 function update!(moi_f::MOI.ScalarAffineFunction, f::AffineFunction, varmap = IdentityVarMap())
-    moi_f.constant == f.constant[] || throw(ArgumentError("MOI.ScalarAffineFunction constant can't be modified."))
+    moi_f.constant = f.constant[]
     resize!(moi_f.terms, length(f.linear))
     @inbounds for i in eachindex(f.linear)
         term = f.linear[i]
@@ -43,7 +43,7 @@ end
 
 function update!(moi_f::MOI.ScalarQuadraticFunction, f::QuadraticFunction, varmap = IdentityVarMap())
     affine = f.affine
-    moi_f.constant == affine.constant[] || throw(ArgumentError("MOI.ScalarQuadraticFunction constant can't be modified."))
+    moi_f.constant = affine.constant[]
     resize!(moi_f.affine_terms, length(affine.linear))
     @inbounds for i in eachindex(affine.linear)
         term = affine.linear[i]

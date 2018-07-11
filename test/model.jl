@@ -60,16 +60,19 @@ end
     end
 
     @objective(model, Minimize, transpose(x) * Q * x + r ⋅ x + s)
+
     SimpleQP.initialize!(model)
     @test model.initialized
 
     test_unconstrained(model, x, Q, r, s)
-
     allocs = @allocated solve!(model)
     @test allocs == 0
 
+    # constant modification
     sval[] = 2.0
-    @test_throws ArgumentError solve!(model) # can't modify constant offset
+    test_unconstrained(model, x, Q, r, s)
+    allocs = @allocated solve!(model)
+    @test allocs == 0
 end
 
 @testset "Model: equality constrained" begin
@@ -101,8 +104,7 @@ end
 
     residual = @expression A * x - b
 
-    # TODO: currently need to subtract b ⋅ b to make it so that constant is zero (due to limitation in MOI 0.3)
-    @objective(model, Minimize, residual ⋅ residual - b ⋅ b)
+    @objective(model, Minimize, residual ⋅ residual)
     @constraint(model, C * x == d)
     @test_throws ArgumentError @constraint(model, C * x ≈ d)
 

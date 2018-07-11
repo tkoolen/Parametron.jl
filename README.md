@@ -44,8 +44,7 @@ end
 residual = @expression A * x - b
 
 # set the objective function
-# currently need to subtract b ⋅ b to make it so that constant is zero (due to limitation in MOI 0.3)
-@objective(model, Minimize, residual ⋅ residual - b ⋅ b)
+@objective(model, Minimize, residual ⋅ residual)
 
 # add the constraints. You could have multiple @constraint calls
 # as well. ==, <=, and >= are supported.

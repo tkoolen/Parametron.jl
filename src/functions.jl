@@ -523,14 +523,9 @@ Take the dot product of vectors `x` and `y`, storing the result in `dest`.
 """
 function vecdot! end
 
-function vecdot!(dest, x::AbstractVector, y::AbstractVector)
-    # fallback
-    vecdot(x, y)
-end
-
-function vecdot!(dest::AffineFunction,
-        x::AbstractVector{<:Union{<:Number, <:AffineFunction}},
-        y::AbstractVector{<:Union{<:Number, <:AffineFunction}})
+function _vecdot!(dest::AffineFunction,
+        x::AbstractVector{<:Union{Number, AffineFunction}},
+        y::AbstractVector{<:Union{Number, AffineFunction}})
     zero!(dest)
     @boundscheck Compat.axes(x) == Compat.axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(x)
@@ -539,9 +534,9 @@ function vecdot!(dest::AffineFunction,
     dest
 end
 
-function vecdot!(dest::AffineFunction,
-        x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}},
-        y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}})
+function _vecdot!(dest::AffineFunction,
+        x::AbstractVector{<:Union{Number, Variable, LinearTerm}},
+        y::AbstractVector{<:Union{Number, Variable, LinearTerm}})
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     linear = dest.linear
@@ -552,9 +547,9 @@ function vecdot!(dest::AffineFunction,
     dest
 end
 
-function vecdot!(dest::QuadraticFunction,
-        x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}},
-        y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm}})
+function _vecdot!(dest::QuadraticFunction,
+        x::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm, <:QuadraticTerm}},
+        y::AbstractVector{<:Union{<:Number, Variable, <:LinearTerm, <:QuadraticTerm}})
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     quadratic = dest.quadratic
@@ -565,7 +560,7 @@ function vecdot!(dest::QuadraticFunction,
     dest
 end
 
-function quadvecdot!(dest::QuadraticFunction, x::AbstractVector, y::AbstractVector)
+function _vecdot!(dest::QuadraticFunction, x::AbstractVector, y::AbstractVector)
     zero!(dest)
     @boundscheck length(x) == length(y) || throw(DimensionMismatch())
     for i in eachindex(x)
@@ -574,12 +569,22 @@ function quadvecdot!(dest::QuadraticFunction, x::AbstractVector, y::AbstractVect
     dest
 end
 
+vecdot!(dest::AffineFunction, x::AbstractVector{<:Number}, y::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}) =
+    _vecdot!(dest, x, y)
+vecdot!(dest::AffineFunction, x::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}, y::AbstractVector{<:Number}) =
+    _vecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Union{Variable, LinearTerm}}, y::AbstractVector{<:Union{Variable, LinearTerm}}) =
+    _vecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Number}, y::AbstractVector{<:QuadraticTerm}) =
+    _vecdot!(dest, x, y)
+vecdot!(dest::QuadraticFunction, x::AbstractVector{<:QuadraticTerm}, y::AbstractVector{<:Number}) =
+    _vecdot!(dest, x, y)
 vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::AbstractVector{<:Union{Variable, <:LinearTerm}}) =
-    quadvecdot!(dest, x, y)
+    _vecdot!(dest, x, y)
 vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Union{Variable, <:LinearTerm}}, y::AbstractVector{<:AffineFunction}) =
-    quadvecdot!(dest, x, y)
+    _vecdot!(dest, x, y)
 vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::AbstractVector{<:AffineFunction}) =
-    quadvecdot!(dest, x, y)
+    _vecdot!(dest, x, y)
 
 """
 $(SIGNATURES)
@@ -773,27 +778,31 @@ else
         matvecmul!(y, adjoint(A), x)
 end
 
-function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{Variable}) where {T<:Number}
-    vecdot!(zero(AffineFunction{T}), x, y)
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:Union{Variable, <:LinearTerm, <:AffineFunction}}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(AffineFunction{R}), x, y)
 end
 
-function LinearAlgebra.dot(x::AbstractArray{Variable}, y::AbstractArray{T}) where {T<:Number}
-    vecdot!(zero(AffineFunction{T}), x, y)
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Union{Variable, <:LinearTerm, <:AffineFunction}, S<:Number}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(AffineFunction{R}), x, y)
 end
 
 function LinearAlgebra.dot(
         x::AbstractArray{T},
         y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
-    R = T <: Variable ? (S <: Variable ? Int : coefftype(S)) : coefftype(T)
+    R = promote_type(coefftype(T), coefftype(S))
     vecdot!(zero(QuadraticFunction{R}), x, y)
 end
 
-function LinearAlgebra.dot(x::AbstractArray{LinearTerm{T}}, y::AbstractArray{Variable}) where T
-    vecdot!(zero(QuadraticFunction{T}), x, y)
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:QuadraticTerm}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(QuadraticFunction{R}), x, y)
 end
 
-function LinearAlgebra.dot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
-    vecdot!(zero(QuadraticFunction{T}), x, y)
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:QuadraticTerm, S<:Number}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(QuadraticFunction{R}), x, y)
 end
 
 

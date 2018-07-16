@@ -142,33 +142,39 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
-    postwalk(expr) do x
+    preprocessed = postwalk(expr) do x
+        if x isa Expr
+            if x.head == :(.)
+                return :(Base.getproperty($(x.args...)))
+            elseif x.head == :vcat
+                return :(Base.vcat($(x.args...)))
+            elseif x.head == :vect
+                return :(Base.vect($(x.args...)))
+            elseif x.head == Symbol("'")
+                return :(Base.adjoint($(x.args...)))
+            end
+        end
+        return x
+    end
+    postwalk(preprocessed) do x
         if @capture(x, f_(args__))
             return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
-            if x isa Expr
-                if x.head == :(.)
-                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.getproperty, $(x.args...))))
-                elseif x.head == :vcat
-                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vcat, $(x.args...))))
-                elseif x.head == :vect
-                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vect, $(x.args...))))
-                elseif x.head == Symbol("'")
-                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.adjoint, $(x.args...))))
-                elseif x.head ∉ [:block, :line]
-                    buf = IOBuffer()
-                    dump(buf, expr)
-                    msg =
-                        """
-                        Unhandled expression head: $(x.head). expr:
-                        $(String(take!(buf)))
-                        """
-                    return :(throw(ArgumentError($msg)))
-                end
+            if x isa Expr && x.head ∉ [:block, :line, :(.)]
+                buf = IOBuffer()
+                println(buf, "Unhandled expression head: $(x.head)")
+                println(buf, "Original expression")
+                dump(buf, expr)
+                println(buf, "Preprocessed expression")
+                dump(buf, preprocessed)
+                println(buf, "Current expression:")
+                dump(buf, x)
+                msg = String(take!(buf))
+                return :(throw(ArgumentError($msg)))
             end
-            return esc(x)
+            return x
         end
-    end
+    end |> esc
 end
 
 

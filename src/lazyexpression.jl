@@ -147,7 +147,9 @@ macro expression(expr)
             return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
             if x isa Expr
-                if x.head == :vcat
+                if x.head == :(.)
+                    return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.getproperty, $(x.args...))))
+                elseif x.head == :vcat
                     return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vcat, $(x.args...))))
                 elseif x.head == :vect
                     return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression(Base.vect, $(x.args...))))

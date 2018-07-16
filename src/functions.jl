@@ -773,26 +773,26 @@ else
         matvecmul!(y, adjoint(A), x)
 end
 
-function LinearAlgebra.vecdot(x::AbstractArray{T}, y::AbstractArray{Variable}) where {T<:Number}
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{Variable}) where {T<:Number}
     vecdot!(zero(AffineFunction{T}), x, y)
 end
 
-function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{T}) where {T<:Number}
+function LinearAlgebra.dot(x::AbstractArray{Variable}, y::AbstractArray{T}) where {T<:Number}
     vecdot!(zero(AffineFunction{T}), x, y)
 end
 
-function LinearAlgebra.vecdot(
+function LinearAlgebra.dot(
         x::AbstractArray{T},
         y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
     R = T <: Variable ? (S <: Variable ? Int : coefftype(S)) : coefftype(T)
     vecdot!(zero(QuadraticFunction{R}), x, y)
 end
 
-function LinearAlgebra.vecdot(x::AbstractArray{LinearTerm{T}}, y::AbstractArray{Variable}) where T
+function LinearAlgebra.dot(x::AbstractArray{LinearTerm{T}}, y::AbstractArray{Variable}) where T
     vecdot!(zero(QuadraticFunction{T}), x, y)
 end
 
-function LinearAlgebra.vecdot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
+function LinearAlgebra.dot(x::AbstractArray{Variable}, y::AbstractArray{LinearTerm{T}}) where T
     vecdot!(zero(QuadraticFunction{T}), x, y)
 end
 

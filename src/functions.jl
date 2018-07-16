@@ -783,31 +783,37 @@ else
         matvecmul!(y, adjoint(A), x)
 end
 
-function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:Union{Variable, <:LinearTerm, <:AffineFunction}}
-    R = promote_type(coefftype(T), coefftype(S))
-    vecdot!(zero(AffineFunction{R}), x, y)
-end
+dotfuns = VERSION < v"0.7-" ? [:dot, :vecdot] : [:dot]
 
-function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Union{Variable, <:LinearTerm, <:AffineFunction}, S<:Number}
-    R = promote_type(coefftype(T), coefftype(S))
-    vecdot!(zero(AffineFunction{R}), x, y)
-end
+for dotfun in dotfuns
+    @eval begin
+        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:Union{Variable, <:LinearTerm, <:AffineFunction}}
+            R = promote_type(coefftype(T), coefftype(S))
+            vecdot!(zero(AffineFunction{R}), x, y)
+        end
 
-function LinearAlgebra.dot(
-        x::AbstractArray{T},
-        y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
-    R = promote_type(coefftype(T), coefftype(S))
-    vecdot!(zero(QuadraticFunction{R}), x, y)
-end
+        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Union{Variable, <:LinearTerm, <:AffineFunction}, S<:Number}
+            R = promote_type(coefftype(T), coefftype(S))
+            vecdot!(zero(AffineFunction{R}), x, y)
+        end
 
-function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:QuadraticTerm}
-    R = promote_type(coefftype(T), coefftype(S))
-    vecdot!(zero(QuadraticFunction{R}), x, y)
-end
+        function LinearAlgebra.$dotfun(
+                x::AbstractArray{T},
+                y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
+            R = promote_type(coefftype(T), coefftype(S))
+            vecdot!(zero(QuadraticFunction{R}), x, y)
+        end
 
-function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:QuadraticTerm, S<:Number}
-    R = promote_type(coefftype(T), coefftype(S))
-    vecdot!(zero(QuadraticFunction{R}), x, y)
+        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:QuadraticTerm}
+            R = promote_type(coefftype(T), coefftype(S))
+            vecdot!(zero(QuadraticFunction{R}), x, y)
+        end
+
+        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:QuadraticTerm, S<:Number}
+            R = promote_type(coefftype(T), coefftype(S))
+            vecdot!(zero(QuadraticFunction{R}), x, y)
+        end
+    end
 end
 
 

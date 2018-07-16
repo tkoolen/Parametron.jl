@@ -86,7 +86,6 @@ function wrap(expr::LazyExpression)
     convert(WrappedExpression{T}, expr)
 end
 
-
 # expression macro
 """
 $(SIGNATURES)
@@ -142,19 +141,23 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
-    preprocessed = postwalk(expr) do x
-        if x isa Expr
-            if x.head == :(.)
-                return :(Base.getproperty($(x.args...)))
-            elseif x.head == :vcat
-                return :(Base.vcat($(x.args...)))
-            elseif x.head == :vect
-                return :(Base.vect($(x.args...)))
-            elseif x.head == Symbol("'")
-                return :(Base.adjoint($(x.args...)))
+    preprocessed = if VERSION < v"0.7-"
+        expand(expr)
+    else
+        postwalk(expr) do x
+            if x isa Expr
+                if x.head == :(.)
+                    return :(Base.getproperty($(x.args...)))
+                elseif x.head == :vcat
+                    return :(Base.vcat($(x.args...)))
+                elseif x.head == :vect
+                    return :(Base.vect($(x.args...)))
+                elseif x.head == Symbol("'")
+                    return :(Compat.adjoint($(x.args...)))
+                end
             end
+            return x
         end
-        return x
     end
     postwalk(preprocessed) do x
         if @capture(x, f_(args__))
@@ -295,6 +298,12 @@ function optimize(expr::LazyExpression{typeof(Base.vect)}, ::Type{<:Union{Number
     end
 end
 
-function optimize(expr::LazyExpression{typeof(Base.getproperty), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
-    LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+if isdefined(Base, :getproperty)
+    function optimize(expr::LazyExpression{typeof(Base.getproperty), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+    end
+else
+    function optimize(expr::LazyExpression{typeof(Base.getfield), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+    end
 end

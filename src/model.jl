@@ -262,8 +262,8 @@ macro constraint(model, expr)
         return :(throw(ArgumentError("Relation not recognized")))
     end
     quote
-        $addcon($(esc(model)), @expression $(esc(:($lhs - $rhs))))
-    end
+        $addcon($model, @expression $lhs - $rhs)
+    end |> esc
 end
 
 """
@@ -283,6 +283,6 @@ julia> @objective model Minimize x ⋅ x
 """
 macro objective(model, sense, expr)
     quote
-        setobjective!($(esc(model)), $(esc(sense)), @expression $(esc(expr)))
-    end
+        setobjective!($model, $sense, @expression $expr)
+    end |> esc
 end

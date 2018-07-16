@@ -569,6 +569,11 @@ function _vecdot!(dest::QuadraticFunction, x::AbstractVector, y::AbstractVector)
     dest
 end
 
+function vecdot!(dest, x, y)
+    # generic fallback
+    dot(x, y)
+end
+
 vecdot!(dest::AffineFunction, x::AbstractVector{<:Number}, y::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}) =
     _vecdot!(dest, x, y)
 vecdot!(dest::AffineFunction, x::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}, y::AbstractVector{<:Number}) =

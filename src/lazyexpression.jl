@@ -160,7 +160,7 @@ macro expression(expr)
         if @capture(x, f_(args__))
             return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
         else
-            if x isa Expr && x.head ∉ [:block, :line, :(.)]
+            if x isa Expr && x.head ∉ [:block, :line, :(.), :curly]
                 buf = IOBuffer()
                 println(buf, "Unhandled expression head: $(x.head)")
                 println(buf, "Original expression")

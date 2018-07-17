@@ -86,7 +86,6 @@ function wrap(expr::LazyExpression)
     convert(WrappedExpression{T}, expr)
 end
 
-
 # expression macro
 """
 $(SIGNATURES)
@@ -142,26 +141,43 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
-    # We call expand(expr) to lower the code and make some useful conversions like:
-    #   * [x; y] turns from Expr(:vcat, :x, :y) into Expr(:call, :vcat, :x, :y)
-    #   * x .+ y turns from Expr(:call, :.+, :x, :y) into Expr(:call, :broadcast, :+, :x, :y) (on v0.6)
-    postwalk(expand(expr)) do x
-        if @capture(x, f_(args__))
-            :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
-        else
-            if x isa Expr && x.head ∉ [:block, :line]
-                buf = IOBuffer()
-                dump(buf, expr)
-                msg =
-                    """
-                    Unhandled expression head: $(x.head). expr:
-                    $(String(take!(buf)))
-                    """
-                return :(throw(ArgumentError($msg)))
+    preprocessed = if VERSION < v"0.7-"
+        expand(expr)
+    else
+        postwalk(expr) do x
+            if x isa Expr
+                if x.head == :(.)
+                    return :(Base.getproperty($(x.args...)))
+                elseif x.head == :vcat
+                    return :(Base.vcat($(x.args...)))
+                elseif x.head == :vect
+                    return :(Base.vect($(x.args...)))
+                elseif x.head == Symbol("'")
+                    return :(Compat.adjoint($(x.args...)))
+                end
             end
-            esc(x)
+            return x
         end
     end
+    postwalk(preprocessed) do x
+        if @capture(x, f_(args__))
+            return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+        else
+            if x isa Expr && x.head ∉ [:block, :line, :(.), :curly]
+                buf = IOBuffer()
+                println(buf, "Unhandled expression head: $(x.head)")
+                println(buf, "Original expression")
+                dump(buf, expr)
+                println(buf, "Preprocessed expression")
+                dump(buf, preprocessed)
+                println(buf, "Current expression:")
+                dump(buf, x)
+                msg = String(take!(buf))
+                return :(throw(ArgumentError($msg)))
+            end
+            return x
+        end
+    end |> esc
 end
 
 
@@ -190,10 +206,10 @@ end
 
 function optimize(expr::LazyExpression{typeof(adjoint)}, ::Type{<:AbstractMatrix})
     LazyExpression(similar(deepcopy(expr())), expr.args...) do dest, A
-        @boundscheck indices(A, 1) == indices(dest, 2) || throw(DimensionMismatch())
-        @boundscheck indices(A, 2) == indices(dest, 1) || throw(DimensionMismatch())
-        @inbounds for j in indices(A, 2)
-            for i in indices(A, 1)
+        @boundscheck Compat.axes(A, 1) == Compat.axes(dest, 2) || throw(DimensionMismatch())
+        @boundscheck Compat.axes(A, 2) == Compat.axes(dest, 1) || throw(DimensionMismatch())
+        @inbounds for j in Compat.axes(A, 2)
+            for i in Compat.axes(A, 1)
                 dest[j, i] = A[i, j]
             end
         end
@@ -282,6 +298,12 @@ function optimize(expr::LazyExpression{typeof(Base.vect)}, ::Type{<:Union{Number
     end
 end
 
-function optimize(expr::LazyExpression{typeof(getfield), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
-    LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+if isdefined(Base, :getproperty)
+    function optimize(expr::LazyExpression{typeof(Base.getproperty), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+    end
+else
+    function optimize(expr::LazyExpression{typeof(Base.getfield), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
+    end
 end

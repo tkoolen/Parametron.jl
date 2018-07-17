@@ -2,6 +2,8 @@ module ModelTests
 
 using Compat
 using Compat.Test
+using Compat.Random
+using Compat.LinearAlgebra
 using SimpleQP
 using OSQP.MathOptInterfaceOSQP
 
@@ -19,12 +21,12 @@ function defaultoptimizer()
     optimizer
 end
 
-function test_unconstrained(model, x, Q, r, s; atol=1e-15)
+function test_unconstrained(model, x, Q, r, s; atol=1e-8)
     solve!(model)
     @test terminationstatus(model) == MOI.Success
     @test primalstatus(model) == MOI.FeasiblePoint
     @test dualstatus(model) == MOI.FeasiblePoint
-    xval = value.(model, x)
+    xval = value.(Ref(model), x)
     expected = -2 * Q() \ r()
     @test xval ≈ expected atol = atol
     @test objectivevalue(model) ≈ dot(xval, Q() * xval) + dot(r(), xval) + s() atol = atol
@@ -43,7 +45,7 @@ end
 
     sval = Ref(1.0)
     Q = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
-        Parameter(eye(n), model) do Q
+        Parameter(Matrix(1.0I, n, n), model) do Q
             Q[1, 1] = rand(rng)
             Q[2, 2] = rand(rng)
         end
@@ -65,6 +67,7 @@ end
     @test model.initialized
 
     test_unconstrained(model, x, Q, r, s)
+    solve!(model)
     allocs = @allocated solve!(model)
     @test allocs == 0
 
@@ -115,7 +118,7 @@ end
         if i > 1
             @test allocs == 0
         end
-        test_equality_constrained(A(), b(), C(), d(), value.(model, x))
+        test_equality_constrained(A(), b(), C(), d(), value.(Ref(model), x))
     end
 end
 
@@ -133,7 +136,7 @@ end
     rng = MersenneTwister(1234)
     l = let rng = rng # https://github.com/JuliaLang/julia/issues/15276
         Parameter(zeros(n), model) do l
-            @. l = -rand(rng)
+            l .= .-rand.(Ref(rng))
             l
         end
     end
@@ -160,7 +163,7 @@ end
     for testnum = 1 : 100
         allocs = @allocated solve!(model)
         expected = p() ./ 2
-        @test value.(model, x) ≈ expected rtol = 1e-4
+        @test value.(Ref(model), x) ≈ expected rtol = 1e-4
         testnum > 1 && @test allocs == 0
     end
 end

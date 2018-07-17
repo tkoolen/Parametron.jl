@@ -2,6 +2,7 @@ module FunctionsTest
 
 using Compat
 using Compat.Test
+using Compat.LinearAlgebra
 using StaticArrays: @SVector
 using SimpleQP
 using SimpleQP.Functions
@@ -80,7 +81,7 @@ end
     x = Variable.(1 : 2)
     vals = Dict(zip(x, [1.0, 2.0]))
     intvals = Dict(zip(x, [1, 2]))
-    xvals = getindex.(vals, x)
+    xvals = map(var -> vals[var], x)
     y = zero(QuadraticFunction{Int})
 
     @test (x ⋅ x)(vals) == xvals ⋅ xvals
@@ -184,7 +185,7 @@ end
     @test fs isa Vector{AffineFunction{Float64}}
     vals = Dict(zip(x, [2.0, 5.0]))
     fvals = [f(vals) for f in fs]
-    xvals = getindex.(vals, x)
+    xvals = map(var -> vals[var], x)
     @test fvals == A1 * xvals
 
     a = [1, 2]

@@ -282,7 +282,5 @@ julia> x = [Variable(model) for i = 1 : 2];
 julia> @objective model Minimize x ⋅ x
 """
 macro objective(model, sense, expr)
-    quote
-        setobjective!($model, $sense, @expression $expr)
-    end |> esc
+    Expr(:call, :setobjective!, esc(model), esc(sense), Expr(:macrocall, Symbol("@expression"), esc(expr)))
 end

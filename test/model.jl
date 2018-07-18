@@ -217,4 +217,12 @@ end
     end
 end
 
+# Issue 54
+module SimpleQPWrapperTest
+    using SimpleQP: @objective, Model, Minimize
+    using OSQP.MathOptInterfaceOSQP: OSQPOptimizer
+    m = Model(OSQPOptimizer())
+    @objective(m, Minimize, 0)
+end
+
 end # module

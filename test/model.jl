@@ -203,4 +203,18 @@ end
     @test objectivevalue(model) ≈ 1 atol=1e-8
 end
 
+@testset "MOI Issue 426" begin
+    model = Model(defaultoptimizer())
+    x = Variable(model)
+    for vector_set_type in (MOI.Nonnegatives, MOI.Nonpositives, MOI.Zeros)
+        @test(length(@inferred(MOI.get(model.backend, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{Float64}, vector_set_type}()))) == 0)
+    end
+    @constraint model [x] >= [0]
+    @constraint model [x] <= [1]
+    @constraint model [x] == [0.5]
+    for vector_set_type in (MOI.Nonnegatives, MOI.Nonpositives, MOI.Zeros)
+        @test(length(@inferred(MOI.get(model.backend, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{Float64}, vector_set_type}()))) == 1)
+    end
+end
+
 end # module

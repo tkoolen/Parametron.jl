@@ -5,7 +5,7 @@ MOIU.@model(SimpleQPMOIModel, # modelname
     (Zeros, Nonnegatives, Nonpositives), # vectorsets
     (), # typedvectorsets
     (), # scalarfunctions
-    (ScalarQuadraticFunction,), # typedscalarfunctions
+    (), # typedscalarfunctions
     (), # vectorfunctions
     (VectorAffineFunction,) # typedvectorfunctions
 )

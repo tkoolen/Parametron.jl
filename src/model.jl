@@ -262,7 +262,7 @@ macro constraint(model, expr)
         return :(throw(ArgumentError("Relation not recognized")))
     end
     quote
-        $addcon($model, @expression $lhs - $rhs)
+        $addcon($model, SimpleQP.@expression $lhs - $rhs)
     end |> esc
 end
 
@@ -283,6 +283,6 @@ julia> @objective model Minimize x ⋅ x
 """
 macro objective(model, sense, expr)
     quote
-        setobjective!($model, $sense, @expression $expr)
+        SimpleQP.setobjective!($model, $sense, SimpleQP.@expression $expr)
     end |> esc
 end

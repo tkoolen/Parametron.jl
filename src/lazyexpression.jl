@@ -141,6 +141,10 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
+    make_lazy_expression(expr)
+end
+
+function make_lazy_expression(expr)
     preprocessed = if VERSION < v"0.7-"
         expand(expr)
     else
@@ -175,9 +179,9 @@ macro expression(expr)
                 msg = String(take!(buf))
                 return :(throw(ArgumentError($msg)))
             end
-            return x
+            return esc(x)
         end
-    end |> esc
+    end
 end
 
 

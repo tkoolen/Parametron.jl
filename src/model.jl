@@ -261,9 +261,10 @@ macro constraint(model, expr)
     else
         return :(throw(ArgumentError("Relation not recognized")))
     end
+    constrexpr = Expr(:call, :-, lhs, rhs)
     quote
-        $addcon($model, @expression $lhs - $rhs)
-    end |> esc
+        $addcon($(esc(model)), $(make_lazy_expression(constrexpr)))
+    end
 end
 
 """
@@ -283,6 +284,6 @@ julia> @objective model Minimize x ⋅ x
 """
 macro objective(model, sense, expr)
     quote
-        setobjective!($model, $sense, @expression $expr)
-    end |> esc
+        setobjective!($(esc(model)), $(esc(sense)), $(make_lazy_expression(expr)))
+    end
 end

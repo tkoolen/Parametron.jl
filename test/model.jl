@@ -217,4 +217,36 @@ end
     end
 end
 
+if !parse(Bool, get(ENV, "CI", "false"))
+    using Gurobi
+    @testset "integer basics" begin
+        optimizer = GurobiOptimizer(OutputFlag=0)
+        model = Model(optimizer)
+        x = Variable(model)
+        @constraint model x ∈ ℤ
+        @constraint model [x] >= [0.5]
+        @objective model Minimize x
+
+        solve!(model)
+
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+        @test value(model, x) ≈ 1.0 atol=1e-8
+    end
+
+    @testset "boolean basics" begin
+        optimizer = GurobiOptimizer(OutputFlag=0)
+        model = Model(optimizer)
+        x = Variable(model)
+        @constraint model x ∈ {0, 1}
+        @objective model Maximize x
+
+        solve!(model)
+
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+        @test value(model, x) ≈ 1.0 atol=1e-8
+    end
+end
+
 end # module

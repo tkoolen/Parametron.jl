@@ -1,10 +1,10 @@
 # TODO: Scalar constraints
 MOIU.@model(SimpleQPMOIModel, # modelname
-    (), # scalarsets
+    (ZeroOne, Integer), # scalarsets
     (), # typedscalarsets
     (Zeros, Nonnegatives, Nonpositives), # vectorsets
     (), # typedvectorsets
-    (), # scalarfunctions
+    (SingleVariable,), # scalarfunctions
     (), # typedscalarfunctions
     (), # vectorfunctions
     (VectorAffineFunction,) # typedvectorfunctions

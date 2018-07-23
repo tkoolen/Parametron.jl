@@ -11,14 +11,15 @@ mutable struct Objective{T}
 end
 
 # TODO: ScalarAffineFunction constraints
-mutable struct Constraint{T, S<:MOI.AbstractSet}
+
+mutable struct VectorConstraint{T, S<:MOI.AbstractSet}
     expr::WrappedExpression{Vector{AffineFunction{T}}}
     moi_f::MOI.VectorAffineFunction{T}
     set::S
     modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
     optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
 
-    function Constraint{T}(expr, set::S) where {T, S<:MOI.AbstractSet}
+    function VectorConstraint{T}(expr, set::S) where {T, S<:MOI.AbstractSet}
         converted = @expression convert(Vector{AffineFunction{T}}, expr)
         wrapped = convert(WrappedExpression{Vector{AffineFunction{T}}}, converted)
         new{T, S}(wrapped, MOI.VectorAffineFunction(wrapped()), set)
@@ -31,9 +32,9 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
     optimizer::O
     initialized::Bool
     objective::Objective{T}
-    nonnegconstraints::Vector{Constraint{T, MOI.Nonnegatives}}
-    nonposconstraints::Vector{Constraint{T, MOI.Nonpositives}}
-    zeroconstraints::Vector{Constraint{T, MOI.Zeros}}
+    nonnegconstraints::Vector{VectorConstraint{T, MOI.Nonnegatives}}
+    nonposconstraints::Vector{VectorConstraint{T, MOI.Nonpositives}}
+    zeroconstraints::Vector{VectorConstraint{T, MOI.Zeros}}
     user_var_to_optimizer::Vector{MOI.VariableIndex}
 
     function Model{T}(optimizer::O) where {T, O}
@@ -42,9 +43,9 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
         backend = SimpleQPMOIModel{T}()
         initialized = false
         objective = Objective{T}(Minimize, @expression zero(QuadraticFunction{T}))
-        nonnegconstraints = Constraint{T, MOI.Nonnegatives}[]
-        nonposconstraints = Constraint{T, MOI.Nonpositives}[]
-        zeroconstraints = Constraint{T, MOI.Zeros}[]
+        nonnegconstraints = VectorConstraint{T, MOI.Nonnegatives}[]
+        nonposconstraints = VectorConstraint{T, MOI.Nonpositives}[]
+        zeroconstraints = VectorConstraint{T, MOI.Zeros}[]
         user_var_to_optimizer = Vector{MOI.VariableIndex}()
         new{T, O}(params, backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
     end
@@ -94,24 +95,33 @@ function setobjective!(m::Model{T}, sense::Sense, expr) where T
     nothing
 end
 
-addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonnegatives}) where {T} = push!(m.nonnegconstraints, c)
-addconstraint!(m::Model{T}, c::Constraint{T, MOI.Nonpositives}) where {T} = push!(m.nonposconstraints, c)
-addconstraint!(m::Model{T}, c::Constraint{T, MOI.Zeros}) where {T} = push!(m.zeroconstraints, c)
+function addconstraint!(m::Model{T}, c::VectorConstraint{T, S}) where {T, S}
+    m.initialized && error("Model was already initialized. addconstraint! can only be called before initialization.")
+    c.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(c.expr()), c.set)
+    if S <: MOI.Nonnegatives
+        push!(m.nonnegconstraints, c)
+    elseif S <: MOI.Nonpositives
+        push!(m.nonposconstraints, c)
+    elseif S <: MOI.Zeros
+        push!(m.zeroconstraints, c)
+    end
+    nothing
+end
 
-function addconstraint!(m::Model{T}, f, set::MOI.AbstractVectorSet) where T
-    m.initialized && error()
-    constraint = Constraint{T}(f, set)
-    constraint.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(constraint.expr()), set)
-    addconstraint!(m, constraint)
+function addconstraint!(m::Model, f::MOI.SingleVariable, set::Union{MOI.Integer, MOI.ZeroOne})
+    m.initialized && error("Model was already initialized. addconstraint! can only be called before initialization.")
+    MOI.addconstraint!(m.backend, f, set) # TODO: store constraint index
     nothing
 end
 
 constraintdim(expr::LazyExpression) = length(expr())
 constraintdim(val) = length(val)
 
-add_nonnegative_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonnegatives(constraintdim(f)))
-add_nonpositive_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Nonpositives(constraintdim(f)))
-add_zero_constraint!(m::Model, f) = addconstraint!(m, f, MOI.Zeros(constraintdim(f)))
+add_nonnegative_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Nonnegatives(constraintdim(f))))
+add_nonpositive_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Nonpositives(constraintdim(f))))
+add_zero_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Zeros(constraintdim(f))))
+add_integer_constraint!(m::Model, x::Variable) = addconstraint!(m, MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer())
+add_binary_constraint!(m::Model, x::Variable) = addconstraint!(m, MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne())
 
 function mapindices(m::Model, idxmap)
     for c in m.nonnegconstraints
@@ -155,7 +165,7 @@ function update!(obj::Objective, m::Model)
     nothing
 end
 
-function update!(constraint::Constraint, m::Model)
+function update!(constraint::VectorConstraint, m::Model)
     update!(constraint.moi_f, constraint.expr(), m.user_var_to_optimizer)
     MOI.set!(m.optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.moi_f)
     nothing
@@ -238,7 +248,13 @@ dualstatus(m::Model) = MOI.get(m.optimizer, MOI.DualStatus())
 """
 $(SIGNATURES)
 
-Add a constraint to the model using operators `==`, `<=`, or `>=`.
+Add a constraint to the model using operators `==`, `<=`, `>=`, or `in`/`∈`.
+
+`in`/`∈` may only be used for single variables with a right hand side that is
+one of:
+
+* ℤ or Integers
+* {0, 1} or ZeroOne
 
 # Examples
 
@@ -250,20 +266,39 @@ julia> x = [Variable(model) for i = 1 : 2];
 
 julia> @constraint(model, x >= zeros(2))
 ```
+
+The constraint that variable `x[1]` should be an integer can be
+expressed using:
+
+```julia
+julia> @constraint(model, x ∈ ℤ)
+```
 """
 macro constraint(model, expr)
-    addcon = if @capture(expr, >=(lhs_, rhs_))
-        :(SimpleQP.add_nonnegative_constraint!)
-    elseif @capture(expr, ==(lhs_, rhs_))
-        :(SimpleQP.add_zero_constraint!)
-    elseif @capture(expr, <=(lhs_, rhs_))
-        :(SimpleQP.add_nonpositive_constraint!)
+    if !(expr isa Expr) || expr.head != :call || length(expr.args) != 3
+        return :(throw(ArgumentError("Expected expression of the form `a relation b`")))
+    end
+    relation = expr.args[1]
+    lhs = expr.args[2]
+    rhs = expr.args[3]
+    if relation == :(>=)
+        ret = :(SimpleQP.add_nonnegative_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+    elseif relation == :(<=)
+        ret = :(SimpleQP.add_nonpositive_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+    elseif relation == :(==)
+        ret = :(SimpleQP.add_zero_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+    elseif relation ∈ [:∈, :in]
+        if rhs ∈ [:ℤ, :Integers]
+            ret = :(SimpleQP.add_integer_constraint!($model, $lhs))
+        elseif rhs ∈ [:({0, 1}), :ZeroOne]
+            ret = :(SimpleQP.add_binary_constraint!($model, $lhs))
+        else
+            return :(throw(ArgumentError("'in' only supports ℤ/Integers and {0, 1}/ZeroOne")))
+        end
     else
         return :(throw(ArgumentError("Relation not recognized")))
     end
-    quote
-        $addcon($model, SimpleQP.@expression $lhs - $rhs)
-    end |> esc
+    esc(ret)
 end
 
 """

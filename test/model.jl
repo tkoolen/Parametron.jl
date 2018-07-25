@@ -7,6 +7,7 @@ using Compat.LinearAlgebra
 using SimpleQP
 using OSQP.MathOptInterfaceOSQP
 using GLPK
+using StaticArrays: SVector
 
 import MathOptInterface
 
@@ -302,6 +303,12 @@ end
 
     allocs = @allocated solve!(model)
     @test allocs == 0
+end
+
+@testset "AbstractVector constraints" begin
+    model = Model(defaultoptimizer())
+    x = SVector(Variable(model), Variable(model))
+    @constraint model x == SVector(1.0, 2.0)
 end
 
 end # module

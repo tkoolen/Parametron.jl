@@ -71,12 +71,24 @@ function addconstraint!(m::Model, constraint::Constraint)
     nothing
 end
 
-constraintdim(expr::LazyExpression) = length(expr())
-constraintdim(val) = length(val)
+_add_nonnegative_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.GreaterThan(zero(T))))
+_add_nonpositive_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.LessThan(zero(T))))
+_add_zero_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.EqualTo(zero(T))))
 
-add_nonnegative_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Nonnegatives(constraintdim(expr))))
-add_nonpositive_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Nonpositives(constraintdim(expr))))
-add_zero_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Zeros(constraintdim(expr))))
+_add_nonnegative_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.Nonnegatives(length(val))))
+_add_nonpositive_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.Nonpositives(length(val))))
+_add_zero_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
+    addconstraint!(m, Constraint(T, expr, MOI.Zeros(length(val))))
+
+add_nonnegative_constraint!(m::Model, expr) = _add_nonnegative_constraint!(m, expr, evalarg(expr))
+add_nonpositive_constraint!(m::Model, expr) = _add_nonpositive_constraint!(m, expr, evalarg(expr))
+add_zero_constraint!(m::Model, expr) = _add_zero_constraint!(m, expr, evalarg(expr))
+
 add_integer_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer()))
 add_binary_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne()))
 

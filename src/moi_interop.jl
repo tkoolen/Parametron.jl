@@ -79,18 +79,162 @@ function update!(moi_f::MOI.VectorAffineFunction, fs::Vector{<:AffineFunction}, 
     moi_f
 end
 
-# MOI function construction
-function MOI.ScalarAffineFunction(f::AffineFunction{T}) where T
-    ret = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{T}[], f.constant)
-    update!(ret, f)
+update!(moi_f::MOI.AbstractFunction, f::Nothing, varmap = IdentityVarMap()) = moi_f
+
+
+# make_moi_equivalent
+make_moi_equivalent(::Type{AffineFunction{T}}) where {T} =
+    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{T}[], zero(T))
+make_moi_equivalent(::Type{QuadraticFunction{T}}) where {T} =
+    MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm{T}[], MOI.ScalarQuadraticTerm{T}[], zero(T))
+make_moi_equivalent(::Type{Vector{AffineFunction{T}}}) where {T} =
+    MOI.VectorAffineFunction(MOI.VectorAffineTerm{T}[], T[])
+
+
+# canonical_function_type
+canonical_function_type(::Type{Variable}, ::Type{T}) where {T} = AffineFunction{T}
+canonical_function_type(::Type{<:LinearTerm}, ::Type{T}) where {T} = AffineFunction{T}
+canonical_function_type(::Type{<:AffineFunction}, ::Type{T}) where {T} = AffineFunction{T}
+canonical_function_type(::Type{<:Vector{<:AffineFunction}}, ::Type{T}) where {T} = Vector{AffineFunction{T}}
+canonical_function_type(::Type{<:QuadraticTerm}, ::Type{T}) where {T} = QuadraticFunction{T}
+canonical_function_type(::Type{<:QuadraticFunction}, ::Type{T}) where {T} = QuadraticFunction{T}
+
+
+# moi_to_native_type
+moi_to_native_type(::Type{MOI.ScalarAffineFunction}) = AffineFunction{T} where T
+moi_to_native_type(::Type{MOI.ScalarQuadraticFunction}) = QuadraticFunction{T} where T
+moi_to_native_type(::Type{MOI.VectorAffineFunction}) = Vector{AffineFunction{T}} where T
+moi_to_native_type(::Type{MOI.SingleVariable}) = Nothing
+
+
+# Objective
+struct Objective{E, F}
+    expr::WrappedExpression{E}
+    f::F
 end
 
-function MOI.ScalarQuadraticFunction(f::QuadraticFunction{T}) where T
-    ret = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm{T}[], MOI.ScalarQuadraticTerm{T}[], f.affine.constant[])
-    update!(ret, f)
+function Objective(::Type{T}, expr) where T
+    val = evalarg(expr)
+    E = canonical_function_type(typeof(val), T)
+    converted = @expression convert(E, expr)
+    wrapped = convert(WrappedExpression{E}, converted)
+    f = make_moi_equivalent(E)
+    F = typeof(f)
+    update!(f, wrapped())
+    Objective{E, F}(wrapped, f)
 end
 
-function MOI.VectorAffineFunction(fs::Vector{AffineFunction{T}}) where T
-    ret = MOI.VectorAffineFunction(MOI.VectorAffineTerm{T}[], T[])
-    update!(ret, fs)
+function update!(objective::Objective{E, F}, optimizer::MOI.AbstractOptimizer, varmap) where {E, F}
+    update!(objective.f, objective.expr(), varmap)
+    MOI.set!(optimizer, MOI.ObjectiveFunction{F}(), objective.f)
+    nothing
+end
+
+
+# Constraint
+mutable struct Constraint{E, F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+    expr::WrappedExpression{E}
+    f::F
+    set::S
+    modelindex::MOI.ConstraintIndex{F, S}
+    optimizerindex::MOI.ConstraintIndex{F, S}
+
+    function Constraint(::Type{T}, expr, set::S) where {T, S<:MOI.AbstractSet}
+        val = evalarg(expr)
+        E = canonical_function_type(typeof(val), T)
+        converted = @expression convert(E, expr)
+        wrapped = convert(WrappedExpression{E}, converted)
+        f = make_moi_equivalent(E)
+        F = typeof(f)
+        update!(f, wrapped())
+        new{E, F, S}(wrapped, f, set)
+    end
+
+    function Constraint(f::F, set::S) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+        E = Nothing
+        wrapped = convert(WrappedExpression{E}, @expression nothing)
+        new{E, F, S}(wrapped, f, set)
+    end
+end
+
+function update!(constraint::Constraint, optimizer::MOI.AbstractOptimizer, varmap)
+    update!(constraint.f, constraint.expr(), varmap)
+    MOI.set!(optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.f)
+    nothing
+end
+update!(constraint::Constraint{Nothing}, optimizer::MOI.AbstractOptimizer, varmap) = nothing
+
+
+# Constraints
+let
+    constraint_specs = [(MOI.VectorAffineFunction{T} where T, MOI.Nonnegatives),
+                        (MOI.VectorAffineFunction{T} where T, MOI.Nonpositives),
+                        (MOI.VectorAffineFunction{T} where T, MOI.Zeros),
+                        (MOI.SingleVariable, MOI.Integer),
+                        (MOI.SingleVariable, MOI.ZeroOne)]
+    fieldnames = Symbol[]
+    constrainttypes = []
+    for (F, S) in constraint_specs
+        E = moi_to_native_type(F)
+        if F isa UnionAll
+            funcsym = F.body.name.name
+            ctype = Constraint{E{T}, F{T}, S} where T
+        else
+            funcsym = F.name.name
+            ctype = Constraint{E, F, S}
+        end
+        setsym = S.name.name
+        push!(fieldnames, Symbol(lowercase(String(funcsym)) * "_in_" * lowercase(String(setsym))))
+        push!(constrainttypes, ctype)
+    end
+
+    # Constraints struct
+    @eval begin
+        struct Constraints{T}
+            $([:($name::Vector{$(ctype isa UnionAll ? :($ctype{T}) : ctype)}) for (name, ctype) in zip(fieldnames, constrainttypes)]...)
+        end
+
+        function Constraints{T}() where {T}
+            Constraints{T}($([:(Vector{$(ctype isa UnionAll ? :($ctype{T}) : ctype)}()) for ctype in constrainttypes]...))
+        end
+    end
+
+    # Base.push! methods
+    for ((F, S), name, ctype) in zip(constraint_specs, fieldnames, constrainttypes)
+        if ctype isa UnionAll
+            @eval function Base.push!(constraints::Constraints{T}, constraint::$(:($ctype{T}))) where T
+                push!(constraints.$name, constraint)
+            end
+        else
+            @eval Base.push!(constraints::Constraints, constraint::$(ctype)) = push!(constraints.$name, constraint)
+        end
+    end
+
+    # update!
+    @eval begin
+        function update!(constraints::Constraints, optimizer::MOI.AbstractOptimizer, varmap)
+            $(map(fieldnames) do fieldname
+                quote
+                    for constraint in constraints.$fieldname
+                        update!(constraint, optimizer, varmap)
+                    end
+                end
+            end...)
+            nothing
+        end
+    end
+
+    # mapindices!
+    @eval begin
+        function mapindices!(constraints::Constraints, idxmap)
+            $(map(fieldnames) do fieldname
+                quote
+                    for constraint in constraints.$fieldname
+                        constraint.optimizerindex = idxmap[constraint.modelindex]
+                    end
+                end
+            end...)
+            nothing
+        end
+    end
 end

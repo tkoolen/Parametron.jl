@@ -1,53 +1,22 @@
-mutable struct Objective{T}
-    sense::Sense
-    expr::WrappedExpression{QuadraticFunction{T}}
-    moi_f::MOI.ScalarQuadraticFunction{T}
-
-    function Objective{T}(sense::Sense, expr) where {T}
-        converted = @expression convert(QuadraticFunction{T}, expr)
-        wrapped = convert(WrappedExpression{QuadraticFunction{T}}, converted)
-        new{T}(sense, wrapped, MOI.ScalarQuadraticFunction(wrapped()))
-    end
-end
-
-# TODO: ScalarAffineFunction constraints
-
-mutable struct VectorConstraint{T, S<:MOI.AbstractSet}
-    expr::WrappedExpression{Vector{AffineFunction{T}}}
-    moi_f::MOI.VectorAffineFunction{T}
-    set::S
-    modelindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
-    optimizerindex::MOI.ConstraintIndex{MOI.VectorAffineFunction{T}, S}
-
-    function VectorConstraint{T}(expr, set::S) where {T, S<:MOI.AbstractSet}
-        converted = @expression convert(Vector{AffineFunction{T}}, expr)
-        wrapped = convert(WrappedExpression{Vector{AffineFunction{T}}}, converted)
-        new{T, S}(wrapped, MOI.VectorAffineFunction(wrapped()), set)
-    end
-end
-
 mutable struct Model{T, O<:MOI.AbstractOptimizer}
     params::Vector{Parameter}
     backend::SimpleQPMOIModel{T}
     optimizer::O
     initialized::Bool
-    objective::Objective{T}
-    nonnegconstraints::Vector{VectorConstraint{T, MOI.Nonnegatives}}
-    nonposconstraints::Vector{VectorConstraint{T, MOI.Nonpositives}}
-    zeroconstraints::Vector{VectorConstraint{T, MOI.Zeros}}
-    user_var_to_optimizer::Vector{MOI.VariableIndex}
+    objective::Objective # abstract type to support different types of objectives. RTTI used in update!.
+    constraints::Constraints{T}
+    model_var_to_optimizer::Vector{MOI.VariableIndex}
 
     function Model{T}(optimizer::O) where {T, O}
         VI = MOI.VariableIndex
         params = Parameter[]
         backend = SimpleQPMOIModel{T}()
         initialized = false
-        objective = Objective{T}(Minimize, @expression zero(QuadraticFunction{T}))
-        nonnegconstraints = VectorConstraint{T, MOI.Nonnegatives}[]
-        nonposconstraints = VectorConstraint{T, MOI.Nonpositives}[]
-        zeroconstraints = VectorConstraint{T, MOI.Zeros}[]
-        user_var_to_optimizer = Vector{MOI.VariableIndex}()
-        new{T, O}(params, backend, optimizer, initialized, objective, nonnegconstraints, nonposconstraints, zeroconstraints, user_var_to_optimizer)
+        MOI.set!(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
+        objective = Objective(T, @expression zero(AffineFunction{T}))
+        constraints = Constraints{T}()
+        model_var_to_optimizer = Vector{MOI.VariableIndex}()
+        new{T, O}(params, backend, optimizer, initialized, objective, constraints, model_var_to_optimizer)
     end
 end
 
@@ -89,54 +58,34 @@ Set the objective function and optimization sense (`Minimize` or `Maximize`).
 """
 function setobjective!(m::Model{T}, sense::Sense, expr) where T
     m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
-    m.objective = Objective{T}(sense, expr)
+    m.objective = Objective(T, expr)
     MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
-    MOI.set!(m.backend, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), m.objective.moi_f)
+    MOI.set!(m.backend, MOI.ObjectiveFunction{typeof(m.objective.f)}(), m.objective.f)
     nothing
 end
 
-function addconstraint!(m::Model{T}, c::VectorConstraint{T, S}) where {T, S}
+function addconstraint!(m::Model, constraint::Constraint)
     m.initialized && error("Model was already initialized. addconstraint! can only be called before initialization.")
-    c.modelindex = MOI.addconstraint!(m.backend, MOI.VectorAffineFunction(c.expr()), c.set)
-    if S <: MOI.Nonnegatives
-        push!(m.nonnegconstraints, c)
-    elseif S <: MOI.Nonpositives
-        push!(m.nonposconstraints, c)
-    elseif S <: MOI.Zeros
-        push!(m.zeroconstraints, c)
-    end
-    nothing
-end
-
-function addconstraint!(m::Model, f::MOI.SingleVariable, set::Union{MOI.Integer, MOI.ZeroOne})
-    m.initialized && error("Model was already initialized. addconstraint! can only be called before initialization.")
-    MOI.addconstraint!(m.backend, f, set) # TODO: store constraint index
+    constraint.modelindex = MOI.addconstraint!(m.backend, constraint.f, constraint.set)
+    push!(m.constraints, constraint)
     nothing
 end
 
 constraintdim(expr::LazyExpression) = length(expr())
 constraintdim(val) = length(val)
 
-add_nonnegative_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Nonnegatives(constraintdim(f))))
-add_nonpositive_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Nonpositives(constraintdim(f))))
-add_zero_constraint!(m::Model{T}, f) where {T} = addconstraint!(m, VectorConstraint{T}(f, MOI.Zeros(constraintdim(f))))
-add_integer_constraint!(m::Model, x::Variable) = addconstraint!(m, MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer())
-add_binary_constraint!(m::Model, x::Variable) = addconstraint!(m, MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne())
+add_nonnegative_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Nonnegatives(constraintdim(expr))))
+add_nonpositive_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Nonpositives(constraintdim(expr))))
+add_zero_constraint!(m::Model{T}, expr) where {T} = addconstraint!(m, Constraint(T, expr, MOI.Zeros(constraintdim(expr))))
+add_integer_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer()))
+add_binary_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne()))
 
-function mapindices(m::Model, idxmap)
-    for c in m.nonnegconstraints
-        c.optimizerindex = idxmap[c.modelindex]
-    end
-    for c in m.nonposconstraints
-        c.optimizerindex = idxmap[c.modelindex]
-    end
-    for c in m.zeroconstraints
-        c.optimizerindex = idxmap[c.modelindex]
-    end
+function mapindices!(m::Model, idxmap)
+    mapindices!(m.constraints, idxmap)
     backend_var_indices = MOI.get(m.backend, MOI.ListOfVariableIndices())
-    resize!(m.user_var_to_optimizer, length(backend_var_indices))
+    resize!(m.model_var_to_optimizer, length(backend_var_indices))
     for index in backend_var_indices
-        m.user_var_to_optimizer[index.value] = idxmap[index]
+        m.model_var_to_optimizer[index.value] = idxmap[index]
     end
 end
 
@@ -151,23 +100,11 @@ called the first time [`solve!`](@ref) is called on a `Model`.
 @noinline function initialize!(m::Model)
     result = MOI.copy!(m.optimizer, m.backend)
     if result.status == MOI.CopySuccess
-        mapindices(m, result.indexmap)
+        mapindices!(m, result.indexmap)
     else
         error("Copy failed with status ", result.status, ". Message: ", result.message)
     end
     m.initialized = true
-    nothing
-end
-
-function update!(obj::Objective, m::Model)
-    update!(obj.moi_f, obj.expr(), m.user_var_to_optimizer)
-    MOI.set!(m.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj.moi_f)
-    nothing
-end
-
-function update!(constraint::VectorConstraint, m::Model)
-    update!(constraint.moi_f, constraint.expr(), m.user_var_to_optimizer)
-    MOI.set!(m.optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.moi_f)
     nothing
 end
 
@@ -179,18 +116,16 @@ Re-evaluate the expressions used to build the constraints and objective function
 Users should generally not need to call this function directly, as it is automatically
 called in [`solve!`](@ref).
 """
-function update!(m::Model)
+function update!(m::Model{T}) where T
     setdirty!(m)
-    update!(m.objective, m)
-    for c in m.nonnegconstraints
-        update!(c, m)
+    if m.objective isa Objective{AffineFunction{T}, MOI.ScalarAffineFunction{T}}
+        update!(m.objective::Objective{AffineFunction{T}, MOI.ScalarAffineFunction{T}}, m.optimizer, m.model_var_to_optimizer)
+    elseif m.objective isa Objective{QuadraticFunction{T}, MOI.ScalarQuadraticFunction{T}}
+        update!(m.objective::Objective{QuadraticFunction{T}, MOI.ScalarQuadraticFunction{T}}, m.optimizer, m.model_var_to_optimizer)
+    else
+        error("Unhandled objective type")
     end
-    for c in m.nonposconstraints
-        update!(c, m)
-    end
-    for c in m.zeroconstraints
-        update!(c, m)
-    end
+    update!(m.constraints, m.optimizer, m.model_var_to_optimizer)
     nothing
 end
 
@@ -215,7 +150,7 @@ $(SIGNATURES)
 
 Return the value of variable `x` as determined by the optimizer.
 """
-value(m::Model, x::Variable) = MOI.get(m.optimizer, MOI.VariablePrimal(), m.user_var_to_optimizer[x.index])
+value(m::Model, x::Variable) = MOI.get(m.optimizer, MOI.VariablePrimal(), m.model_var_to_optimizer[x.index])
 
 """
 $(SIGNATURES)

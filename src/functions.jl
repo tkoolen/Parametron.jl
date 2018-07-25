@@ -71,7 +71,7 @@ struct Variable
 end
 Base.hash(v::Variable, h::UInt) = hash(v.index, h)
 coefftype(::Type{Variable}) = Int
-
+Base.:+(var::Variable) = var
 
 # LinearTerm, QuadraticTerm
 
@@ -92,6 +92,7 @@ getcoeff(term::LinearTerm) = term.coeff
 setcoeff(term::LinearTerm, coeff) = LinearTerm(coeff, term.var)
 Base.:*(coeff::Number, var::Variable) = LinearTerm(coeff, var)
 Base.:*(var::Variable, coeff::Number) = LinearTerm(coeff, var)
+Base.:-(var::Variable) = LinearTerm(-1, var)
 Base.promote_rule(::Type{LinearTerm{T}}, ::Type{Variable}) where {T} = LinearTerm{T}
 Base.convert(::Type{LinearTerm{T}}, var::Variable) where {T} = LinearTerm{T}(var)
 
@@ -456,6 +457,8 @@ for (op, fun!) in [(:+, add!), (:-, subtract!)]
         Base.$op(x::Number, y::LinearTerm) = AffineFunction([$op(y)], x)
         Base.$op(x::Variable, y::T) where {T<:Number} = $op(LinearTerm{T}(x), y)
         Base.$op(x::T, y::Variable) where {T<:Number} = $op(x, LinearTerm{T}(y))
+        Base.$op(x::LinearTerm{T}, y::Variable) where T = $op(x, LinearTerm{T}(y))
+        Base.$op(x::Variable, y::LinearTerm{T}) where T = $op(LinearTerm{T}(x), y)
         Base.$op(x::AffineFunction{T}, y::AffineFunction{S}) where {T, S} =
             $fun!(AffineFunction{promote_type(T, S)}(x), y)
         Base.$op(x::AffineFunction{T}, y::S) where {T, S<:Union{Number, Variable, LinearTerm}} =

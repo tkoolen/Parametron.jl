@@ -1,14 +1,15 @@
-# TODO: Scalar constraints
+# MOI backend AbstractModel
 MOIU.@model(SimpleQPMOIModel, # modelname
     (ZeroOne, Integer), # scalarsets
-    (), # typedscalarsets
+    (LessThan, GreaterThan, EqualTo), # typedscalarsets
     (Zeros, Nonnegatives, Nonpositives), # vectorsets
     (), # typedvectorsets
     (SingleVariable,), # scalarfunctions
-    (), # typedscalarfunctions
+    (ScalarAffineFunction,), # typedscalarfunctions
     (), # vectorfunctions
     (VectorAffineFunction,) # typedvectorfunctions
 )
+
 
 # Variable conversion
 Functions.Variable(v::MOI.VariableIndex) = Variable(v.value)
@@ -167,7 +168,10 @@ update!(constraint::Constraint{Nothing}, optimizer::MOI.AbstractOptimizer, varma
 
 # Constraints
 let
-    constraint_specs = [(MOI.VectorAffineFunction{T} where T, MOI.Nonnegatives),
+    constraint_specs = [(MOI.ScalarAffineFunction{T} where T, MOI.GreaterThan{T} where T),
+                        (MOI.ScalarAffineFunction{T} where T, MOI.LessThan{T} where T),
+                        (MOI.ScalarAffineFunction{T} where T, MOI.EqualTo{T} where T),
+                        (MOI.VectorAffineFunction{T} where T, MOI.Nonnegatives),
                         (MOI.VectorAffineFunction{T} where T, MOI.Nonpositives),
                         (MOI.VectorAffineFunction{T} where T, MOI.Zeros),
                         (MOI.SingleVariable, MOI.Integer),
@@ -176,14 +180,17 @@ let
     constrainttypes = []
     for (F, S) in constraint_specs
         E = moi_to_native_type(F)
-        if F isa UnionAll
-            funcsym = F.body.name.name
-            ctype = Constraint{E{T}, F{T}, S} where T
+        funcsym = F isa UnionAll ? F.body.name.name : F.name.name
+        setsym = S isa UnionAll ? S.body.name.name : S.name.name
+        ctype = if F isa UnionAll && S isa UnionAll
+            Constraint{E{T}, F{T}, S{T}} where T
+        elseif F isa UnionAll
+            Constraint{E{T}, F{T}, S} where T
+        elseif S isa UnionAll
+            Constraint{E, F, S{T}} where T
         else
-            funcsym = F.name.name
-            ctype = Constraint{E, F, S}
+            Constraint{E, F, S}
         end
-        setsym = S.name.name
         push!(fieldnames, Symbol(lowercase(String(funcsym)) * "_in_" * lowercase(String(setsym))))
         push!(constrainttypes, ctype)
     end

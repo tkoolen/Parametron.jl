@@ -88,7 +88,7 @@ make_moi_equivalent(::Type{AffineFunction{T}}) where {T} =
     MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{T}[], zero(T))
 make_moi_equivalent(::Type{QuadraticFunction{T}}) where {T} =
     MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm{T}[], MOI.ScalarQuadraticTerm{T}[], zero(T))
-make_moi_equivalent(::Type{Vector{AffineFunction{T}}}) where {T} =
+make_moi_equivalent(::Type{<:AbstractVector{AffineFunction{T}}}) where {T} =
     MOI.VectorAffineFunction(MOI.VectorAffineTerm{T}[], T[])
 
 
@@ -96,7 +96,7 @@ make_moi_equivalent(::Type{Vector{AffineFunction{T}}}) where {T} =
 canonical_function_type(::Type{Variable}, ::Type{T}) where {T} = AffineFunction{T}
 canonical_function_type(::Type{<:LinearTerm}, ::Type{T}) where {T} = AffineFunction{T}
 canonical_function_type(::Type{<:AffineFunction}, ::Type{T}) where {T} = AffineFunction{T}
-canonical_function_type(::Type{<:Vector{<:AffineFunction}}, ::Type{T}) where {T} = Vector{AffineFunction{T}}
+canonical_function_type(::Type{<:AbstractVector{<:AffineFunction}}, ::Type{T}) where {T} = Vector{AffineFunction{T}}
 canonical_function_type(::Type{<:QuadraticTerm}, ::Type{T}) where {T} = QuadraticFunction{T}
 canonical_function_type(::Type{<:QuadraticFunction}, ::Type{T}) where {T} = QuadraticFunction{T}
 

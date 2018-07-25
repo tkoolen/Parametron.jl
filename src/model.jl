@@ -3,7 +3,7 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
     backend::SimpleQPMOIModel{T}
     optimizer::O
     initialized::Bool
-    objective::Objective
+    objective::Objective # abstract type to support different types of objectives. RTTI used in update!.
     constraints::Constraints{T}
     model_var_to_optimizer::Vector{MOI.VariableIndex}
 

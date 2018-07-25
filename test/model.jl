@@ -250,4 +250,58 @@ if !parse(Bool, get(ENV, "CI", "false"))
     end
 end
 
+@testset "scalar constraints 1" begin
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = Variable(model)
+    @constraint(model, x <= -3)
+    @objective model Minimize x^2
+    solve!(model)
+    @test value(model, x) ≈ -3. atol = 1e-8
+    allocs = @allocated solve!(model)
+    @test allocs == 0
+end
+
+@testset "scalar constraints 2" begin
+    # from https://github.com/JuliaOpt/MathOptInterface.jl/blob/575647cfa344ed7656e0eee16537017184a011a8/src/Test/contquadratic.jl#L3
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = Variable(model)
+    y = Variable(model)
+    z = Variable(model)
+    @objective model Minimize x^2 + x * y + y^2 + y * z + z^2
+    @constraint model x + 2y + 3z >= 4
+    @constraint model x +  y      >= 1
+    solve!(model)
+
+    @test terminationstatus(model) == MOI.Success
+    @test primalstatus(model) == MOI.FeasiblePoint
+    @test objectivevalue(model) ≈ 13/7 atol=1e-6
+    @test value.(Ref(model), [x, y, z]) ≈ [4/7, 3/7, 6/7] atol=1e-6
+
+    allocs = @allocated solve!(model)
+    @test allocs == 0
+end
+
+@testset "scalar constraints 3" begin
+    # from https://github.com/JuliaOpt/MathOptInterface.jl/blob/575647cfa344ed7656e0eee16537017184a011a8/src/Test/contquadratic.jl#L160
+    optimizer = defaultoptimizer()
+    model = Model(optimizer)
+    x = Variable(model)
+    y = Variable(model)
+    @objective model Minimize 2 * x^2 + y^2 + x * y + x + y + 1
+    @constraint model x >= 0
+    @constraint model -y <= 0
+    @constraint model x + y == 1
+    solve!(model)
+
+    @test terminationstatus(model) == MOI.Success
+    @test primalstatus(model) == MOI.FeasiblePoint
+    @test objectivevalue(model) ≈ 2.875 atol=1e-6
+    @test value.(Ref(model), [x, y]) ≈ [0.25, 0.75] atol=1e-6
+
+    allocs = @allocated solve!(model)
+    @test allocs == 0
+end
+
 end # module

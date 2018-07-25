@@ -248,6 +248,22 @@ if !parse(Bool, get(ENV, "CI", "false"))
         @test primalstatus(model) == MOI.FeasiblePoint
         @test value(model, x) ≈ 1.0 atol=1e-8
     end
+
+    @testset "simple binary problem" begin
+        optimizer = GurobiOptimizer(OutputFlag=0)
+        model = Model(optimizer)
+        x = [Variable(model) for _ = 1:2]
+        @constraint model x[1] ∈ {0, 1}
+        @constraint model [x[2]] >= [x[1]]
+        @constraint model [x[2]] >= [1.5] - [x[1]]
+        @objective model Minimize x[2]
+
+        solve!(model)
+
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+        @test value.(Ref(model), x) ≈ [1.0, 1.0] atol=1e-8
+    end
 end
 
 end # module

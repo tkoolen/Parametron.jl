@@ -768,6 +768,16 @@ function scale!(
     dest
 end
 
+function scale!(dest::AbstractArray{<:Number}, x::AbstractArray{<:Number}, y::Number)
+    dest .= x .* y
+    dest
+end
+
+function scale!(dest::AbstractArray{<:Number}, x::Number, y::AbstractArray{<:Number})
+    dest .= x .* y
+    dest
+end
+
 if VERSION >= v"0.7-"
     function LinearAlgebra.mul!(y::StridedVector{AffineFunction{T}}, A::AbstractMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat}
         matvecmul!(y, A, x)

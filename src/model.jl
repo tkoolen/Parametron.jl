@@ -12,8 +12,9 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
         params = Parameter[]
         backend = SimpleQPMOIModel{T}()
         initialized = false
-        MOI.set!(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
         objective = Objective(T, @expression zero(AffineFunction{T}))
+        MOI.set!(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
+        MOI.set!(backend, MOI.ObjectiveFunction{typeof(objective.f)}(), objective.f)
         constraints = Constraints{T}()
         model_var_to_optimizer = Vector{MOI.VariableIndex}()
         new{T, O}(params, backend, optimizer, initialized, objective, constraints, model_var_to_optimizer)

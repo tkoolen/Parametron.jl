@@ -311,4 +311,15 @@ end
     @constraint model x == SVector(1.0, 2.0)
 end
 
+@testset "default objective (issue #62)" begin
+    model = Model(defaultoptimizer())
+    x = Variable(model)
+    @constraint model x == 1
+    solve!(model)
+    @test terminationstatus(model) == MOI.Success
+    @test primalstatus(model) == MOI.FeasiblePoint
+    @test objectivevalue(model) == 0.0
+    @test value(model, x) ≈ 1.0 atol=1e-6
+end
+
 end # module

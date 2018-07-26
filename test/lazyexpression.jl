@@ -153,6 +153,15 @@ end
     dt = Parameter{Float64}(model) do
         2.0
     end
+    @testset "Number" begin
+        expr = @expression dt * [1, 2, 3, 4, 5]
+        @test expr() == dt() * [1, 2, 3, 4, 5]
+        @test @allocated(expr()) == 0
+
+        expr = @expression [1, 2, 3, 4, 5] * dt
+        @test expr() == [1, 2, 3, 4, 5] * dt()
+        @test @allocated(expr()) == 0
+    end
     @testset "Variable" begin
         expr = @expression dt * x
         @test expr() == dt() * x

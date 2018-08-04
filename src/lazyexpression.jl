@@ -150,8 +150,12 @@ macro expression(expr)
                     return :(Base.getproperty($(x.args...)))
                 elseif x.head == :vcat
                     return :(Base.vcat($(x.args...)))
+                elseif x.head == :hcat
+                    return :(Base.hcat($(x.args...)))
                 elseif x.head == :vect
                     return :(Base.vect($(x.args...)))
+                elseif x.head == :ref
+                    return :(Base.getindex($(x.args...)))
                 elseif x.head == Symbol("'")
                     return :(Compat.adjoint($(x.args...)))
                 end

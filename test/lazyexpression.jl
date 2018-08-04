@@ -362,8 +362,7 @@ function allocations_in_local_scope(x)
 end
 
 @testset "getfield optimization" begin
-    m = MockModel()
-    model = SimpleQP.MockModel()
+    model = MockModel()
     p = Parameter(model) do
         MyWrapper(rand())
     end
@@ -380,6 +379,28 @@ end
     @test ex2() == p().x + 1
     setdirty!(p)
     @test allocations_in_local_scope(ex2) == 0
+end
+
+@testset "hcat" begin
+    model = MockModel()
+    p = Parameter(model) do
+        rand(3, 3)
+    end
+    hcat_expr = @expression [p p]
+    @test hcat_expr() == [p() p()]
+    setdirty!(p)
+    @test hcat_expr() == [p() p()]
+end
+
+@testset "getindex" begin
+    model = MockModel()
+    p = Parameter(model) do
+        rand(3, 3)
+    end
+    getindex_expr = @expression p[:,2]
+    @test getindex_expr() == p()[:,2]
+    setdirty!(p)
+    @test getindex_expr() == p()[:,2]
 end
 
 end

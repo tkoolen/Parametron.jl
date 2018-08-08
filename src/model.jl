@@ -230,11 +230,11 @@ macro constraint(model, expr)
     lhs = expr.args[2]
     rhs = expr.args[3]
     if relation == :(>=)
-        ret = :(SimpleQP.add_nonnegative_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(SimpleQP.add_nonnegative_constraint!($model, SimpleQP.@expression broadcast(-, $lhs, $rhs)))
     elseif relation == :(<=)
-        ret = :(SimpleQP.add_nonpositive_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(SimpleQP.add_nonpositive_constraint!($model, SimpleQP.@expression broadcast(-, $lhs, $rhs)))
     elseif relation == :(==)
-        ret = :(SimpleQP.add_zero_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(SimpleQP.add_zero_constraint!($model, SimpleQP.@expression broadcast(-, $lhs, $rhs)))
     elseif relation ∈ [:∈, :in]
         if rhs ∈ [:ℤ, :Integers]
             ret = :(SimpleQP.add_integer_constraint!($model, $lhs))

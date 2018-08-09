@@ -3,9 +3,9 @@
 [![Build Status](https://travis-ci.org/tkoolen/Parametron.jl.svg?branch=master)](https://travis-ci.org/tkoolen/Parametron.jl)
 [![codecov.io](http://codecov.io/github/tkoolen/Parametron.jl/coverage.svg?branch=master)](http://codecov.io/github/tkoolen/Parametron.jl?branch=master)
 
-Parametron makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of quadratic programs.
+Parametron makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of optimization problems.
 
-As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver to solve the following problem:
+As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver to solve the following quadratic program:
 
 ```
 Minimize ||A x - b||^2

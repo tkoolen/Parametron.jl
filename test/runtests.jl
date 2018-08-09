@@ -1,4 +1,4 @@
-module SimpleQPTest
+module ParametronTest
 
 include("parameter.jl")
 include("functions.jl")

@@ -1,9 +1,9 @@
-# SimpleQP
+# Parametron
 
-[![Build Status](https://travis-ci.org/tkoolen/SimpleQP.jl.svg?branch=master)](https://travis-ci.org/tkoolen/SimpleQP.jl)
-[![codecov.io](http://codecov.io/github/tkoolen/SimpleQP.jl/coverage.svg?branch=master)](http://codecov.io/github/tkoolen/SimpleQP.jl?branch=master)
+[![Build Status](https://travis-ci.org/tkoolen/Parametron.jl.svg?branch=master)](https://travis-ci.org/tkoolen/Parametron.jl)
+[![codecov.io](http://codecov.io/github/tkoolen/Parametron.jl/coverage.svg?branch=master)](http://codecov.io/github/tkoolen/Parametron.jl?branch=master)
 
-SimpleQP makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of quadratic programs.
+Parametron makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of quadratic programs.
 
 As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver to solve the following problem:
 
@@ -21,8 +21,8 @@ Here's the basic problem setup:
 using OSQP.MathOptInterfaceOSQP
 optimizer = OSQPOptimizer()
 
-# create a SimpleQP.Model, which holds problem information
-using SimpleQP
+# create a Parametron.Model, which holds problem information
+using Parametron
 model = Model(optimizer)
 
 # create decision variables and parameters

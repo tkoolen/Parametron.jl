@@ -9,18 +9,18 @@ Various operators are overloaded to make it easy to construct such functions.
 
 ```julia
 julia> x, y = Variable.(1 : 2)
-2-element Array{SimpleQP.Functions.Variable,1}:
- SimpleQP.Functions.Variable(1)
- SimpleQP.Functions.Variable(2)
+2-element Array{Parametron.Functions.Variable,1}:
+ Parametron.Functions.Variable(1)
+ Parametron.Functions.Variable(2)
 
 julia> fun = 3 * (x + y) + 4
 3 * x1 + 3 * x2 + 4
 
 julia> typeof(fun)
-SimpleQP.Functions.AffineFunction{Int64}
+Parametron.Functions.AffineFunction{Int64}
 
 julia> fun.linear
-2-element Array{SimpleQP.Functions.LinearTerm{Int64},1}:
+2-element Array{Parametron.Functions.LinearTerm{Int64},1}:
 
  3 * x1
  3 * x2
@@ -501,19 +501,19 @@ Base.:^(x::AffineFunction, p::Integer) = Base.power_by_squaring(x, p)
 
 
 # Number-like interface
-const SimpleQPFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
-Base.transpose(x::SimpleQPFunctions) = x
-Compat.LinearAlgebra.dot(x::SimpleQPFunctions, y::SimpleQPFunctions) = x * y
-Compat.LinearAlgebra.dot(x::SimpleQPFunctions, y::Number) = x * y
-Compat.LinearAlgebra.dot(x::Number, y::SimpleQPFunctions) = x * y
-Base.to_power_type(x::SimpleQPFunctions) = x # TODO: remove once https://github.com/JuliaLang/julia/issues/24151 is fixed
-Base.zero(::T) where {T<:SimpleQPFunctions} = zero(T)
-Base.one(::T) where {T<:SimpleQPFunctions} = one(T)
+const ParametronFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
+Base.transpose(x::ParametronFunctions) = x
+Compat.LinearAlgebra.dot(x::ParametronFunctions, y::ParametronFunctions) = x * y
+Compat.LinearAlgebra.dot(x::ParametronFunctions, y::Number) = x * y
+Compat.LinearAlgebra.dot(x::Number, y::ParametronFunctions) = x * y
+Base.to_power_type(x::ParametronFunctions) = x # TODO: remove once https://github.com/JuliaLang/julia/issues/24151 is fixed
+Base.zero(::T) where {T<:ParametronFunctions} = zero(T)
+Base.one(::T) where {T<:ParametronFunctions} = one(T)
 if VERSION >= v"0.7-"
-    Base.adjoint(x::SimpleQPFunctions) = x
-    Base.broadcastable(x::SimpleQPFunctions) = Ref(x)
+    Base.adjoint(x::ParametronFunctions) = x
+    Base.broadcastable(x::ParametronFunctions) = Ref(x)
 end
-Base.conj(x::SimpleQPFunctions) = x
+Base.conj(x::ParametronFunctions) = x
 
 
 # Array operations

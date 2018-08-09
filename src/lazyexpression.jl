@@ -15,7 +15,7 @@ A `LazyExpression` may be evaluated by simply calling it with no arguments.
 ```julia
 julia> a = ones(2); b = ones(2);
 
-julia> expr = SimpleQP.LazyExpression(+, a, b)
+julia> expr = Parametron.LazyExpression(+, a, b)
 LazyExpression{Base.#+, …}(…)
 
 julia> expr()
@@ -101,10 +101,10 @@ are simply evaluated straight away.
 Creating an expression that represents `p * x1`, where `p` is a parameter that always evaluates to 2:
 
 ```julia
-julia> model = SimpleQP.MockModel(); # a 'mock model' used only for demonstrations and tests
+julia> model = Parametron.MockModel(); # a 'mock model' used only for demonstrations and tests
 
 julia> x1 = Variable(model)
-SimpleQP.Functions.Variable(1)
+Parametron.Functions.Variable(1)
 
 julia> p = Parameter{Int}(() -> 2, model)
 Parameter{Int64, …}(…)
@@ -120,7 +120,7 @@ Creating an expression that represents `p ⋅ x`, where `p` is a parameter that 
 `x` is a vector of two variables:
 
 ```julia
-julia> model = SimpleQP.MockModel();
+julia> model = Parametron.MockModel();
 
 julia> x = Variable.(1 : 2);
 
@@ -128,7 +128,7 @@ julia> p = Parameter(identity, [1, 2], model)
 Parameter{Array{Int64,1}, …}(…)
 
 julia> expr = @expression p ⋅ x
-LazyExpression{FunctionWrapper{…}(LazyExpression{SimpleQP.Functions.#vecdot!, …}(…))}(…)
+LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#vecdot!, …}(…))}(…)
 
 julia> expr()
 1 * x1 + 2 * x2 + 0
@@ -165,7 +165,7 @@ macro expression(expr)
     end
     postwalk(preprocessed) do x
         if @capture(x, f_(args__))
-            return :(SimpleQP.optimize_toplevel(SimpleQP.LazyExpression($f, $(args...))))
+            return :(Parametron.optimize_toplevel(Parametron.LazyExpression($f, $(args...))))
         else
             if x isa Expr && x.head ∉ [:block, :line, :(.), :curly]
                 buf = IOBuffer()

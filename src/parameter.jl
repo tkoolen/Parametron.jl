@@ -14,8 +14,8 @@ The update function will then be called when the parameter itself is called.
 # Examples
 
 ```julia
-julia> model = SimpleQP.MockModel() # a 'mock model' used only for demonstrations and tests
-SimpleQP.MockModel(SimpleQP.Parameter[], Base.RefValue{Int64}(1))
+julia> model = Parametron.MockModel() # a 'mock model' used only for demonstrations and tests
+Parametron.MockModel(Parametron.Parameter[], Base.RefValue{Int64}(1))
 
 julia> value = Ref(1)
 Base.RefValue{Int64}(1)
@@ -32,7 +32,7 @@ julia> value[] = 2
 julia> p()
 1
 
-julia> SimpleQP.setdirty!(p); p()
+julia> Parametron.setdirty!(p); p()
 2
 ```
 """

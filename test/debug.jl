@@ -2,9 +2,9 @@ module DebugTest
 
 using Compat
 using Compat.Test
-using SimpleQP
+using Parametron
 
-import SimpleQP: MockModel, setdirty!, findallocs
+import Parametron: MockModel, setdirty!, findallocs
 
 @testset "findallocs" begin
     model = MockModel()

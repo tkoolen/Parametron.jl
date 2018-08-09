@@ -7,6 +7,12 @@ using Compat.LinearAlgebra
 using Parametron
 using StaticArrays
 
+if VERSION < v"0.7.0-DEV.3406"
+    const seed! = srand
+else
+    using Random: seed!
+end
+
 import Parametron: setdirty!, MockModel
 
 @testset "basics" begin
@@ -186,7 +192,7 @@ end
 
 
 @testset "vcat optimization" begin
-    srand(42)
+    seed!(42)
     m = MockModel()
     A = Parameter(rand!, zeros(3, 4), m)
     B = Parameter(rand!, zeros(3, 3), m)

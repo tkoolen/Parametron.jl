@@ -1,30 +1,24 @@
-## Documentation: http://docs.travis-ci.com/user/languages/julia/
+# Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
 os:
   - linux
   - osx
 julia:
   - 0.6
-  # - 0.7
+  - 0.7
+  - 1.0
   - nightly
+matrix:
+  allow_failures:
+  - julia: nightly
+  - julia: 1.0
 branches:
   only:
     - master
     - /^v[0-9]+\.[0-9]+\.[0-9]+$/ # version tags
 notifications:
   email: false
-git:
-  depth: 99999999
-matrix:
- allow_failures:
- - julia: nightly
 before_script:
   - julia -e 'if VERSION >= v"0.7-"; import Pkg; repo = Pkg.Types.GitRepo("https://github.com/tkoolen/FunctionWrappers.jl", "tk/julia-0.7"); Pkg.add(Pkg.Types.PackageSpec(repo)); end'
-## uncomment the following lines to override the default test script
-#script:
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("Parametron"); Pkg.test("Parametron"; coverage=true)'
 after_success:
-  # push coverage results to Coveralls
-  - julia -e 'cd(Pkg.dir("Parametron")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
-  # push coverage results to Codecov
-  - julia -e 'cd(Pkg.dir("Parametron")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+- if [[ "$TRAVIS_JULIA_VERSION" == 0.6 ]]; then julia -e 'cd(Pkg.dir("Parametron")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'; else julia --project -e 'Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'; fi

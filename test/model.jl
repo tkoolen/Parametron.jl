@@ -4,7 +4,7 @@ using Compat
 using Compat.Test
 using Compat.Random
 using Compat.LinearAlgebra
-using SimpleQP
+using Parametron
 using OSQP.MathOptInterfaceOSQP
 using GLPK
 using StaticArrays: SVector
@@ -65,7 +65,7 @@ end
 
     @objective(model, Minimize, transpose(x) * Q * x + r ⋅ x + s)
 
-    SimpleQP.initialize!(model)
+    Parametron.initialize!(model)
     @test model.initialized
 
     test_unconstrained(model, x, Q, r, s)

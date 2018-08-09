@@ -1,6 +1,6 @@
 mutable struct Model{T, O<:MOI.AbstractOptimizer}
     params::Vector{Parameter}
-    backend::SimpleQPMOIModel{T}
+    backend::ParametronMOIModel{T}
     optimizer::O
     initialized::Bool
     objective::Objective # abstract type to support different types of objectives. RTTI used in update!.
@@ -10,7 +10,7 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
     function Model{T}(optimizer::O) where {T, O}
         VI = MOI.VariableIndex
         params = Parameter[]
-        backend = SimpleQPMOIModel{T}()
+        backend = ParametronMOIModel{T}()
         initialized = false
         objective = Objective(T, @expression zero(AffineFunction{T}))
         MOI.set!(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
@@ -230,16 +230,16 @@ macro constraint(model, expr)
     lhs = expr.args[2]
     rhs = expr.args[3]
     if relation == :(>=)
-        ret = :(SimpleQP.add_nonnegative_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(Parametron.add_nonnegative_constraint!($model, Parametron.@expression $lhs - $rhs))
     elseif relation == :(<=)
-        ret = :(SimpleQP.add_nonpositive_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(Parametron.add_nonpositive_constraint!($model, Parametron.@expression $lhs - $rhs))
     elseif relation == :(==)
-        ret = :(SimpleQP.add_zero_constraint!($model, SimpleQP.@expression $lhs - $rhs))
+        ret = :(Parametron.add_zero_constraint!($model, Parametron.@expression $lhs - $rhs))
     elseif relation ∈ [:∈, :in]
         if rhs ∈ [:ℤ, :Integers]
-            ret = :(SimpleQP.add_integer_constraint!($model, $lhs))
+            ret = :(Parametron.add_integer_constraint!($model, $lhs))
         elseif rhs ∈ [:({0, 1}), :ZeroOne]
-            ret = :(SimpleQP.add_binary_constraint!($model, $lhs))
+            ret = :(Parametron.add_binary_constraint!($model, $lhs))
         else
             return :(throw(ArgumentError("'in' only supports ℤ/Integers and {0, 1}/ZeroOne")))
         end
@@ -266,6 +266,6 @@ julia> @objective model Minimize x ⋅ x
 """
 macro objective(model, sense, expr)
     quote
-        SimpleQP.setobjective!($model, $sense, SimpleQP.@expression $expr)
+        Parametron.setobjective!($model, $sense, Parametron.@expression $expr)
     end |> esc
 end

@@ -1,13 +1,13 @@
-import SimpleQP
+import Parametron
 
 """
 A 'mock model' used only for demonstrations and tests.
 """
 struct MockModel
-    params::Vector{SimpleQP.Parameter}
+    params::Vector{Parametron.Parameter}
     nextvarindex::Base.RefValue{Int}
 end
-MockModel() = MockModel(SimpleQP.Parameter[], Ref(1))
-SimpleQP.setdirty!(model::MockModel) = foreach(SimpleQP.setdirty!, model.params)
-SimpleQP.addparameter!(model::MockModel, param::SimpleQP.Parameter) = (push!(model.params, param); param)
+MockModel() = MockModel(Parametron.Parameter[], Ref(1))
+Parametron.setdirty!(model::MockModel) = foreach(Parametron.setdirty!, model.params)
+Parametron.addparameter!(model::MockModel, param::Parametron.Parameter) = (push!(model.params, param); param)
 Variable(model::MockModel) = (ret = Variable(model.nextvarindex[]); model.nextvarindex[] += 1; ret);

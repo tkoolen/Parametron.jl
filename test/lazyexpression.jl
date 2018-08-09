@@ -4,10 +4,10 @@ using Compat
 using Compat.Test
 using Compat.Random
 using Compat.LinearAlgebra
-using SimpleQP
+using Parametron
 using StaticArrays
 
-import SimpleQP: setdirty!, MockModel
+import Parametron: setdirty!, MockModel
 
 @testset "basics" begin
     model = MockModel()
@@ -94,8 +94,8 @@ end
     end
     @test allocs == 0
 
-    wrapped = SimpleQP.wrap(expr)
-    @test wrapped isa SimpleQP.WrappedExpression{Vector{AffineFunction{Float64}}}
+    wrapped = Parametron.wrap(expr)
+    @test wrapped isa Parametron.WrappedExpression{Vector{AffineFunction{Float64}}}
     setdirty!(m)
     @test wrapped() == expr()
     allocs = @allocated begin
@@ -103,7 +103,7 @@ end
         wrapped()
     end
     @test allocs == 0
-    wrapped² = SimpleQP.wrap(wrapped)
+    wrapped² = Parametron.wrap(wrapped)
     @test wrapped² === wrapped
 end
 

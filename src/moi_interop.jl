@@ -1,5 +1,5 @@
 # MOI backend AbstractModel
-MOIU.@model(SimpleQPMOIModel, # modelname
+MOIU.@model(ParametronMOIModel, # modelname
     (ZeroOne, Integer), # scalarsets
     (LessThan, GreaterThan, EqualTo), # typedscalarsets
     (Zeros, Nonnegatives, Nonpositives), # vectorsets

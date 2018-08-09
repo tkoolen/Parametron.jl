@@ -4,8 +4,8 @@ using Compat
 using Compat.Test
 using Compat.LinearAlgebra
 using StaticArrays: @SVector
-using SimpleQP
-using SimpleQP.Functions
+using Parametron
+using Parametron.Functions
 
 @testset "LinearTerm" begin
     x = Variable(1)

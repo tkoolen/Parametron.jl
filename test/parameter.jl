@@ -2,9 +2,9 @@ module ParameterTest
 
 using Compat
 using Compat.Test
-using SimpleQP
+using Parametron
 
-import SimpleQP: setdirty!, MockModel
+import Parametron: setdirty!, MockModel
 
 @testset "Parameter" begin
     # out-of-place parameter

@@ -230,10 +230,18 @@ function optimize(expr::LazyExpression{typeof(*)},
     LazyExpression(Functions.bilinearmul!, dest, Q, x, y)
 end
 
-function optimize(expr::LazyExpression{<:Union{typeof(vecdot), typeof(dot)}}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
+function optimize(expr::LazyExpression{typeof(dot)}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
     x, y = expr.args
     dest = deepcopy(expr())
     LazyExpression(Functions.vecdot!, dest, x, y)
+end
+
+if VERSION < v"0.7-"
+    function optimize(expr::LazyExpression{typeof(vecdot)}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
+        x, y = expr.args
+        dest = deepcopy(expr())
+        LazyExpression(Functions.vecdot!, dest, x, y)
+    end
 end
 
 function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type, ::Type, ::Type...)

@@ -1,4 +1,3 @@
-OSQP 0.1.8
+OSQP
 StaticArrays 0.7
-Gurobi
 GLPK

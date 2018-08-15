@@ -111,12 +111,8 @@ Users should generally not need to call this function directly, as it is automat
 called the first time [`solve!`](@ref) is called on a `Model`.
 """
 @noinline function initialize!(m::Model)
-    result = MOI.copy!(m.optimizer, m.backend)
-    if result.status == MOI.CopySuccess
-        mapindices!(m, result.indexmap)
-    else
-        error("Copy failed with status ", result.status, ". Message: ", result.message)
-    end
+    indexmap = MOI.copy!(m.optimizer, m.backend)
+    mapindices!(m, indexmap)
     m.initialized = true
     nothing
 end

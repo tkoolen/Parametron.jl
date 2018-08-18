@@ -220,7 +220,7 @@ end
 end
 
 @testset "boolean basics" begin
-    optimizer = GLPKOptimizerMIP()
+    optimizer = GLPK.Optimizer()
     model = Model(optimizer)
     x = Variable(model)
     @constraint model x ∈ {0, 1}
@@ -234,7 +234,7 @@ end
 end
 
 @testset "integer basics" begin
-    optimizer = GLPKOptimizerMIP()
+    optimizer = GLPK.Optimizer()
     model = Model(optimizer)
     x = Variable(model)
     @constraint model x ∈ ℤ

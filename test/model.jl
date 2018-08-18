@@ -234,18 +234,36 @@ end
 end
 
 @testset "integer basics" begin
-    optimizer = GLPK.Optimizer()
-    model = Model(optimizer)
-    x = Variable(model)
-    @constraint model x ∈ ℤ
-    @constraint model [x] >= [0.5]
-    @objective model Minimize x
+    # https://github.com/JuliaOpt/GLPK.jl/issues/58
+    @testset "scalar constraint" begin
+        optimizer = GLPK.Optimizer()
+        model = Model(optimizer)
+        x = Variable(model)
+        @constraint model x ∈ ℤ
+        @constraint model x >= 0.5
+        @objective model Minimize x
 
-    solve!(model)
+        solve!(model)
 
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
-    @test value(model, x) ≈ 1.0 atol=1e-8
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+        @test value(model, x) ≈ 1.0 atol=1e-8
+    end
+
+    @testset "vector constraint" begin
+        optimizer = GLPK.Optimizer()
+        model = Model(optimizer)
+        x = Variable(model)
+        @constraint model x ∈ ℤ
+        @constraint model [x] >= [0.5]
+        @objective model Minimize x
+
+        solve!(model)
+
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+        @test value(model, x) ≈ 1.0 atol=1e-8
+    end
 end
 
 @testset "scalar constraints 1" begin

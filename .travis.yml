@@ -5,7 +5,6 @@ os:
   - osx
 julia:
   - 0.6
-  - 0.7
   - 1.0
   - nightly
 matrix:
@@ -20,4 +19,4 @@ notifications:
 before_script:
   - julia -e 'if VERSION >= v"0.7-"; import Pkg; repo = Pkg.Types.GitRepo("https://github.com/tkoolen/FunctionWrappers.jl", "tk/julia-0.7-quickfix"); Pkg.add(Pkg.Types.PackageSpec(repo)); end'
 after_success:
-  - julia coverage.jl
+  - julia -e 'if VERSION >= v"0.7-"; using Pkg; else; cd(Pkg.dir("Parametron")); end; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

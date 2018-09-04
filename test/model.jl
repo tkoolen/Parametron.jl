@@ -233,36 +233,54 @@ end
     @test value(model, x) ≈ 1.0 atol=1e-8
 end
 
-@testset "integer basics" begin
-    # https://github.com/JuliaOpt/GLPK.jl/issues/58
-    @testset "scalar constraint" begin
-        optimizer = GLPK.Optimizer()
-        model = Model(optimizer)
-        x = Variable(model)
-        @constraint model x ∈ ℤ
-        @constraint model x >= 0.5
-        @objective model Minimize x
-
-        solve!(model)
-
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
-        @test value(model, x) ≈ 1.0 atol=1e-8
+glpk_works = false
+try
+    optimizer = GLPK.Optimizer()
+    x = MOI.addvariable!(optimizer)
+    f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+    s = MOI.GreaterThan(0.0)
+    ci = MOI.addconstraint!(optimizer, f, s)
+    MOI.set!(optimizer, MOI.ConstraintFunction(), ci, f)
+    global glpk_works = true
+catch e
+    if !(e isa MOI.UnsupportedAttribute{MOI.ConstraintFunction})
+        rethrow(e)
     end
+end
+@show glpk_works
 
-    @testset "vector constraint" begin
-        optimizer = GLPK.Optimizer()
-        model = Model(optimizer)
-        x = Variable(model)
-        @constraint model x ∈ ℤ
-        @constraint model [x] >= [0.5]
-        @objective model Minimize x
+if glpk_works
+    @testset "integer basics" begin
+        # https://github.com/JuliaOpt/GLPK.jl/issues/58
+        @testset "scalar constraint" begin
+            optimizer = GLPK.Optimizer()
+            model = Model(optimizer)
+            x = Variable(model)
+            @constraint model x ∈ ℤ
+            @constraint model x >= 0.5
+            @objective model Minimize x
 
-        solve!(model)
+            solve!(model)
 
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
-        @test value(model, x) ≈ 1.0 atol=1e-8
+            @test terminationstatus(model) == MOI.Success
+            @test primalstatus(model) == MOI.FeasiblePoint
+            @test value(model, x) ≈ 1.0 atol=1e-8
+        end
+
+        @testset "vector constraint" begin
+            optimizer = GLPK.Optimizer()
+            model = Model(optimizer)
+            x = Variable(model)
+            @constraint model x ∈ ℤ
+            @constraint model [x] >= [0.5]
+            @objective model Minimize x
+
+            solve!(model)
+
+            @test terminationstatus(model) == MOI.Success
+            @test primalstatus(model) == MOI.FeasiblePoint
+            @test value(model, x) ≈ 1.0 atol=1e-8
+        end
     end
 end
 

@@ -5,13 +5,11 @@ os:
   - osx
 julia:
   - 0.6
-  - 0.7
   - 1.0
   - nightly
 matrix:
   allow_failures:
   - julia: nightly
-  - julia: 1.0
 branches:
   only:
     - master
@@ -19,6 +17,6 @@ branches:
 notifications:
   email: false
 before_script:
-  - julia -e 'if VERSION >= v"0.7-"; import Pkg; repo = Pkg.Types.GitRepo("https://github.com/tkoolen/FunctionWrappers.jl", "tk/julia-0.7"); Pkg.add(Pkg.Types.PackageSpec(repo)); end'
+  - julia -e 'if VERSION >= v"0.7-"; import Pkg; repo = Pkg.Types.GitRepo("https://github.com/tkoolen/FunctionWrappers.jl", "tk/julia-0.7-quickfix"); Pkg.add(Pkg.Types.PackageSpec(repo)); end'
 after_success:
-- if [[ "$TRAVIS_JULIA_VERSION" == 0.6 ]]; then julia -e 'cd(Pkg.dir("Parametron")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'; else julia --project -e 'Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'; fi
+  - julia -e 'if VERSION >= v"0.7-"; using Pkg; else; cd(Pkg.dir("Parametron")); end; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

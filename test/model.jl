@@ -6,6 +6,7 @@ using Compat.Random
 using Compat.LinearAlgebra
 using Parametron
 using OSQP.MathOptInterfaceOSQP
+using GLPK
 using StaticArrays: SVector
 
 import MathOptInterface
@@ -218,27 +219,56 @@ end
     end
 end
 
-if VERSION < v"0.7-" # versions of Gurobi and GLPK that are compatible with MOI 0.4 currently don't work on 0.7
-    using GLPK
-    @testset "boolean basics" begin
-        optimizer = GLPKOptimizerMIP()
-        model = Model(optimizer)
-        x = Variable(model)
-        @constraint model x ∈ {0, 1}
-        @objective model Maximize x
+@testset "boolean basics" begin
+    optimizer = GLPK.Optimizer()
+    model = Model(optimizer)
+    x = Variable(model)
+    @constraint model x ∈ {0, 1}
+    @objective model Maximize x
 
-        solve!(model)
+    solve!(model)
 
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
-        @test value(model, x) ≈ 1.0 atol=1e-8
+    @test terminationstatus(model) == MOI.Success
+    @test primalstatus(model) == MOI.FeasiblePoint
+    @test value(model, x) ≈ 1.0 atol=1e-8
+end
+
+glpk_works = false
+try
+    optimizer = GLPK.Optimizer()
+    x = MOI.addvariable!(optimizer)
+    f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+    s = MOI.GreaterThan(0.0)
+    ci = MOI.addconstraint!(optimizer, f, s)
+    MOI.set!(optimizer, MOI.ConstraintFunction(), ci, f)
+    global glpk_works = true
+catch e
+    if !(e isa MOI.UnsupportedAttribute{MOI.ConstraintFunction})
+        rethrow(e)
     end
+end
+@show glpk_works
 
-    if !parse(Bool, get(ENV, "CI", "false"))
-        using Gurobi
+if glpk_works
+    @testset "integer basics" begin
+        # https://github.com/JuliaOpt/GLPK.jl/issues/58
+        @testset "scalar constraint" begin
+            optimizer = GLPK.Optimizer()
+            model = Model(optimizer)
+            x = Variable(model)
+            @constraint model x ∈ ℤ
+            @constraint model x >= 0.5
+            @objective model Minimize x
 
-        @testset "integer basics" begin
-            optimizer = GurobiOptimizer(OutputFlag=0)
+            solve!(model)
+
+            @test terminationstatus(model) == MOI.Success
+            @test primalstatus(model) == MOI.FeasiblePoint
+            @test value(model, x) ≈ 1.0 atol=1e-8
+        end
+
+        @testset "vector constraint" begin
+            optimizer = GLPK.Optimizer()
             model = Model(optimizer)
             x = Variable(model)
             @constraint model x ∈ ℤ

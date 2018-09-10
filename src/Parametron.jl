@@ -1,4 +1,4 @@
-VERSION < v"0.7.0-beta2.199" && __precompile__()
+__precompile__()
 
 module Parametron
 
@@ -40,7 +40,12 @@ using Compat
 using Compat.LinearAlgebra
 using DocStringExtensions
 
-import FunctionWrappers: FunctionWrapper
+@static if VERSION >= v"0.7-"
+    include("FunctionWrappersQuickFix.jl")
+    using .FunctionWrappersQuickFix: FunctionWrapper
+else
+    using FunctionWrappers: FunctionWrapper
+end
 import MathOptInterface
 import MacroTools: @capture, postwalk
 

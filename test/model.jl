@@ -355,4 +355,28 @@ end
     @test value(model, x) ≈ 1.0 atol=1e-6
 end
 
+@testset "Parameter(A, model)" begin
+    rng = MersenneTwister(1)
+    # From the README
+    n, m = 5, 15
+    Xdata = randn(n, m)
+    pdata = Vector{Float64}(undef, m);
+    model = Model(defaultoptimizer())
+    X = Parameter(identity, Xdata, model)
+    p = Parameter(identity, pdata, model)
+    g = [Variable(model) for _ = 1:n]
+    resid = @expression X'*g - p
+    @objective(model, Minimize, resid'*resid)
+    ggt = randn(n)
+    pdata .= Xdata'*ggt
+    solve!(model)
+    gv = value.(model, g)
+    @test gv ≈ ggt rtol=0.01
+    ggt = randn(n)
+    pdata .= Xdata'*ggt
+    solve!(model)
+    gv = value.(model, g)
+    @test gv ≈ ggt rtol=0.01
+end
+
 end # module

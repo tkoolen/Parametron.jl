@@ -265,3 +265,8 @@ macro objective(model, sense, expr)
         Parametron.setobjective!($model, $sense, Parametron.@expression $expr)
     end |> esc
 end
+
+@static if VERSION >= v"0.7-"
+    # Support constructs like value.(model, x)
+    Broadcast.broadcastable(m::Model) = Ref(m)
+end

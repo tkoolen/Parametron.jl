@@ -28,7 +28,7 @@ function test_unconstrained(model, x, Q, r, s; atol=1e-8)
     @test terminationstatus(model) == MOI.Success
     @test primalstatus(model) == MOI.FeasiblePoint
     @test dualstatus(model) == MOI.FeasiblePoint
-    xval = value.(Ref(model), x)
+    xval = value.(model, x)
     expected = -2 * Q() \ r()
     @test xval ≈ expected atol = atol
     @test objectivevalue(model) ≈ dot(xval, Q() * xval) + dot(r(), xval) + s() atol = atol
@@ -120,7 +120,7 @@ end
         if i > 1
             @test allocs == 0
         end
-        test_equality_constrained(A(), b(), C(), d(), value.(Ref(model), x))
+        test_equality_constrained(A(), b(), C(), d(), value.(model, x))
     end
 end
 
@@ -165,7 +165,7 @@ end
     for testnum = 1 : 100
         allocs = @allocated solve!(model)
         expected = p() ./ 2
-        @test value.(Ref(model), x) ≈ expected rtol = 1e-4
+        @test value.(model, x) ≈ expected rtol = 1e-4
         testnum > 1 && @test allocs == 0
     end
 end
@@ -311,7 +311,7 @@ end
     @test terminationstatus(model) == MOI.Success
     @test primalstatus(model) == MOI.FeasiblePoint
     @test objectivevalue(model) ≈ 13/7 atol=1e-6
-    @test value.(Ref(model), [x, y, z]) ≈ [4/7, 3/7, 6/7] atol=1e-6
+    @test value.(model, [x, y, z]) ≈ [4/7, 3/7, 6/7] atol=1e-6
 
     allocs = @allocated solve!(model)
     @test allocs == 0
@@ -332,7 +332,7 @@ end
     @test terminationstatus(model) == MOI.Success
     @test primalstatus(model) == MOI.FeasiblePoint
     @test objectivevalue(model) ≈ 2.875 atol=1e-6
-    @test value.(Ref(model), [x, y]) ≈ [0.25, 0.75] atol=1e-6
+    @test value.(model, [x, y]) ≈ [0.25, 0.75] atol=1e-6
 
     allocs = @allocated solve!(model)
     @test allocs == 0

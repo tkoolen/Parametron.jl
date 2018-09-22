@@ -147,17 +147,17 @@ macro expression(expr)
         postwalk(expr) do x
             if x isa Expr
                 if x.head == :(.)
-                    return :(Base.getproperty($(x.args...)))
+                    return :(getproperty($(x.args...)))
                 elseif x.head == :vcat
-                    return :(Base.vcat($(x.args...)))
+                    return :(vcat($(x.args...)))
                 elseif x.head == :hcat
-                    return :(Base.hcat($(x.args...)))
+                    return :(hcat($(x.args...)))
                 elseif x.head == :vect
                     return :(Base.vect($(x.args...)))
                 elseif x.head == :ref
-                    return :(Base.getindex($(x.args...)))
+                    return :(getindex($(x.args...)))
                 elseif x.head == Symbol("'")
-                    return :(Compat.adjoint($(x.args...)))
+                    return :(adjoint($(x.args...)))
                 end
             end
             return x

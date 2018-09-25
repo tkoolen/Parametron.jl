@@ -409,4 +409,14 @@ end
     @test getindex_expr() == p()[:,2]
 end
 
+@testset "A' * x (https://github.com/tkoolen/Parametron.jl/pull/79#issuecomment-423732633)" begin
+    model = MockModel()
+    n, m = 5, 15
+    Adata = randn(n, m)
+    A = Parameter(identity, Adata, model)
+    x = [Variable(model) for _ = 1:n]
+    resid = @expression A' * x
+    @test resid() == Adata' * x
+end
+
 end

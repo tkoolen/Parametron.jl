@@ -356,8 +356,8 @@ end
 end
 
 @testset "Parameter(A, model)" begin
-    rng = MersenneTwister(1)
     # From the README
+    rng = MersenneTwister(1)
     n, m = 5, 15
     Xdata = randn(n, m)
     pdata = Vector{Float64}(undef, m);

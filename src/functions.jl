@@ -46,14 +46,6 @@ export
 using LinearAlgebra
 using DocStringExtensions
 
-@static if VERSION >= v"0.7-"
-    const TransposeVector{T, V<:AbstractVector{T}} = Transpose{T, V}
-    const AdjointVector{T, V<:AbstractVector{T}} = Adjoint{T, V}
-else
-    const TransposeVector{T, V<:AbstractVector{T}} = RowVector{T, V}
-    const AdjointVector{T, V<:AbstractVector{T}} = RowVector{T, ConjVector{T, V}}
-end
-
 coefftype(::Type{T}) where {T<:Number} = T
 
 # Variable
@@ -178,10 +170,6 @@ Base.hash(x::AffineFunction, h::UInt) = (h = hash(x.linear, h); hash(x.constant,
 
 Base.zero(::Type{AffineFunction{T}}) where {T} = AffineFunction(LinearTerm{T}[], Ref(zero(T)))
 zero!(f::AffineFunction) = (empty!(f.linear); f.constant[] = 0; f)
-
-if VERSION < v"0.7-"
-    Base.r_promote_type(::typeof(+), ::Type{LinearTerm{T}}) where {T} = AffineFunction{T}
-end
 
 Base.convert(::Type{AffineFunction{T}}, x::AffineFunction{T}) where {T} = x
 Base.convert(::Type{AffineFunction{T}}, x::AffineFunction) where {T} = AffineFunction{T}(x)
@@ -506,10 +494,8 @@ LinearAlgebra.dot(x::Number, y::ParametronFunctions) = x * y
 Base.to_power_type(x::ParametronFunctions) = x # TODO: remove once https://github.com/JuliaLang/julia/issues/24151 is fixed
 Base.zero(::T) where {T<:ParametronFunctions} = zero(T)
 Base.one(::T) where {T<:ParametronFunctions} = one(T)
-if VERSION >= v"0.7-"
-    Base.adjoint(x::ParametronFunctions) = x
-    Base.broadcastable(x::ParametronFunctions) = Ref(x)
-end
+Base.adjoint(x::ParametronFunctions) = x
+Base.broadcastable(x::ParametronFunctions) = Ref(x)
 Base.conj(x::ParametronFunctions) = x
 
 
@@ -678,7 +664,7 @@ end
 
 function matvecmul!(
         dest::Union{AffineFunction, QuadraticFunction},
-        x::Union{TransposeVector, AdjointVector},
+        x::Union{Transpose{<:Any, <:AbstractVector}, Adjoint{<:Any, <:AbstractVector}},
         y::AbstractVector)
     vecdot!(dest, parent(x), y)
 end
@@ -693,7 +679,7 @@ function bilinearmul! end
 function bilinearmul!(
         dest::QuadraticFunction,
         Q::AbstractMatrix,
-        x::Union{TransposeVector{Variable, <:AbstractVector{Variable}}, AdjointVector{Variable, <:AbstractVector{Variable}}},
+        x::Union{Transpose{Variable, <:AbstractVector{Variable}}, Adjoint{Variable, <:AbstractVector{Variable}}},
         y::AbstractVector{Variable})
     @boundscheck size(Q) == (length(x), length(y)) || throw(DimensionMismatch())
     zero!(dest)
@@ -775,57 +761,36 @@ function scale!(dest::AbstractArray{<:Number}, x::Number, y::AbstractArray{<:Num
     dest
 end
 
-if VERSION >= v"0.7-"
-    function LinearAlgebra.mul!(y::StridedVector{AffineFunction{T}}, A::AbstractMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat}
-        matvecmul!(y, A, x)
-    end
-else
-    LinearAlgebra.At_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        At_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), transpose(A), x)
-    LinearAlgebra.Ac_mul_B(A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        Ac_mul_B!(Vector{AffineFunction{T}}(undef, size(A, 2)), adjoint(A), x)
-
-    LinearAlgebra.A_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        matvecmul!(y, A, x)
-    LinearAlgebra.At_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        matvecmul!(y, transpose(A), x)
-    LinearAlgebra.Ac_mul_B!(y::StridedVector{AffineFunction{T}}, A::StridedMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat} =
-        matvecmul!(y, adjoint(A), x)
+function LinearAlgebra.mul!(y::StridedVector{AffineFunction{T}}, A::AbstractMatrix{T}, x::StridedVector{Variable}) where {T <: LinearAlgebra.BlasFloat}
+    matvecmul!(y, A, x)
 end
 
-dotfuns = VERSION < v"0.7-" ? [:dot, :vecdot] : [:dot]
-
-for dotfun in dotfuns
-    @eval begin
-        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:Union{Variable, <:LinearTerm, <:AffineFunction}}
-            R = promote_type(coefftype(T), coefftype(S))
-            vecdot!(zero(AffineFunction{R}), x, y)
-        end
-
-        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Union{Variable, <:LinearTerm, <:AffineFunction}, S<:Number}
-            R = promote_type(coefftype(T), coefftype(S))
-            vecdot!(zero(AffineFunction{R}), x, y)
-        end
-
-        function LinearAlgebra.$dotfun(
-                x::AbstractArray{T},
-                y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
-            R = promote_type(coefftype(T), coefftype(S))
-            vecdot!(zero(QuadraticFunction{R}), x, y)
-        end
-
-        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:QuadraticTerm}
-            R = promote_type(coefftype(T), coefftype(S))
-            vecdot!(zero(QuadraticFunction{R}), x, y)
-        end
-
-        function LinearAlgebra.$dotfun(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:QuadraticTerm, S<:Number}
-            R = promote_type(coefftype(T), coefftype(S))
-            vecdot!(zero(QuadraticFunction{R}), x, y)
-        end
-    end
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:Union{Variable, <:LinearTerm, <:AffineFunction}}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(AffineFunction{R}), x, y)
 end
 
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Union{Variable, <:LinearTerm, <:AffineFunction}, S<:Number}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(AffineFunction{R}), x, y)
+end
+
+function LinearAlgebra.dot(
+        x::AbstractArray{T},
+        y::AbstractArray{S}) where {T <: Union{Variable, <:LinearTerm, <:AffineFunction}, S <: Union{Variable, <:LinearTerm, <:AffineFunction}}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(QuadraticFunction{R}), x, y)
+end
+
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:Number, S<:QuadraticTerm}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(QuadraticFunction{R}), x, y)
+end
+
+function LinearAlgebra.dot(x::AbstractArray{T}, y::AbstractArray{S}) where {T<:QuadraticTerm, S<:Number}
+    R = promote_type(coefftype(T), coefftype(S))
+    vecdot!(zero(QuadraticFunction{R}), x, y)
+end
 
 # vcat!
 

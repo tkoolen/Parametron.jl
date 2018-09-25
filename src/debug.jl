@@ -9,7 +9,7 @@ function findallocs(io::IO, x, depth = 0, argnum = nothing)
         allocs = @allocated x()
         print(io, "$x: ")
         color = allocs > 0 ? :light_red : :green
-        Compat.printstyled(io, allocs, color=color)
+        printstyled(io, allocs, color=color)
         print(io, " bytes")
         println(io)
     else

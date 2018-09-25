@@ -1,7 +1,6 @@
 module DebugTest
 
-using Compat
-using Compat.Test
+using Test
 using Parametron
 
 import Parametron: MockModel, setdirty!, findallocs

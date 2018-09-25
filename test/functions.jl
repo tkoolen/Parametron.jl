@@ -1,8 +1,7 @@
 module FunctionsTest
 
-using Compat
-using Compat.Test
-using Compat.LinearAlgebra
+using Test
+using LinearAlgebra
 using StaticArrays: @SVector
 using Parametron
 using Parametron.Functions

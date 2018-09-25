@@ -1,7 +1,6 @@
 module ParameterTest
 
-using Compat
-using Compat.Test
+using Test
 using Parametron
 
 import Parametron: setdirty!, MockModel

@@ -1,18 +1,12 @@
 module LazyExpressionTest
 
-using Compat
-using Compat.Test
-using Compat.Random
-using Compat.LinearAlgebra
+using Test
+using Random
+using LinearAlgebra
 using Parametron
 using StaticArrays
 
-if VERSION < v"0.7.0-DEV.3406"
-    const seed! = srand
-else
-    using Random: seed!
-end
-
+import Random
 import Parametron: setdirty!, MockModel
 
 @testset "basics" begin
@@ -192,7 +186,7 @@ end
 
 
 @testset "vcat optimization" begin
-    seed!(42)
+    Random.seed!(42)
     m = MockModel()
     A = Parameter(rand!, zeros(3, 4), m)
     B = Parameter(rand!, zeros(3, 3), m)

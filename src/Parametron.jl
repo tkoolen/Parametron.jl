@@ -36,30 +36,17 @@ export
     @constraint,
     @objective
 
-using Compat
-using Compat.LinearAlgebra
+using LinearAlgebra
 using DocStringExtensions
 
-@static if VERSION >= v"0.7-"
-    include("FunctionWrappersQuickFix.jl")
-    using .FunctionWrappersQuickFix: FunctionWrapper
-else
-    using FunctionWrappers: FunctionWrapper
-end
+include("FunctionWrappersQuickFix.jl")
+using .FunctionWrappersQuickFix: FunctionWrapper
+
 import MathOptInterface
 import MacroTools: @capture, postwalk
 
-const LinearAlgebra = Compat.LinearAlgebra
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
-
-@static if VERSION >= v"0.7-"
-    const TransposeVector{T, V<:AbstractVector{T}} = Transpose{T, V}
-    const AdjointVector{T, V<:AbstractVector{T}} = Adjoint{T, V}
-else
-    const TransposeVector{T, V<:AbstractVector{T}} = RowVector{T, V}
-    const AdjointVector{T, V<:AbstractVector{T}} = RowVector{T, ConjVector{T, V}}
-end
 
 @enum Sense Minimize Maximize
 

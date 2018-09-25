@@ -141,27 +141,23 @@ Note that evaluating the expression does not allocate, because the ⋅ operation
 optimized and transformed into a call to the in-place `Functions.vecdot!` function.
 """
 macro expression(expr)
-    preprocessed = if VERSION < v"0.7-"
-        expand(expr)
-    else
-        postwalk(expr) do x
-            if x isa Expr
-                if x.head == :(.)
-                    return :(getproperty($(x.args...)))
-                elseif x.head == :vcat
-                    return :(vcat($(x.args...)))
-                elseif x.head == :hcat
-                    return :(hcat($(x.args...)))
-                elseif x.head == :vect
-                    return :(Base.vect($(x.args...)))
-                elseif x.head == :ref
-                    return :(getindex($(x.args...)))
-                elseif x.head == Symbol("'")
-                    return :(adjoint($(x.args...)))
-                end
+    preprocessed = postwalk(expr) do x
+        if x isa Expr
+            if x.head == :(.)
+                return :(getproperty($(x.args...)))
+            elseif x.head == :vcat
+                return :(vcat($(x.args...)))
+            elseif x.head == :hcat
+                return :(hcat($(x.args...)))
+            elseif x.head == :vect
+                return :(Base.vect($(x.args...)))
+            elseif x.head == :ref
+                return :(getindex($(x.args...)))
+            elseif x.head == Symbol("'")
+                return :(adjoint($(x.args...)))
             end
-            return x
         end
+        return x
     end
     postwalk(preprocessed) do x
         if @capture(x, f_(args__))
@@ -210,10 +206,10 @@ end
 
 function optimize(expr::LazyExpression{typeof(adjoint)}, ::Type{<:AbstractMatrix})
     LazyExpression(similar(deepcopy(expr())), expr.args...) do dest, A
-        @boundscheck Compat.axes(A, 1) == Compat.axes(dest, 2) || throw(DimensionMismatch())
-        @boundscheck Compat.axes(A, 2) == Compat.axes(dest, 1) || throw(DimensionMismatch())
-        @inbounds for j in Compat.axes(A, 2)
-            for i in Compat.axes(A, 1)
+        @boundscheck axes(A, 1) == axes(dest, 2) || throw(DimensionMismatch())
+        @boundscheck axes(A, 2) == axes(dest, 1) || throw(DimensionMismatch())
+        @inbounds for j in axes(A, 2)
+            for i in axes(A, 1)
                 dest[j, i] = A[i, j]
             end
         end
@@ -222,7 +218,7 @@ function optimize(expr::LazyExpression{typeof(adjoint)}, ::Type{<:AbstractMatrix
 end
 
 function optimize(expr::LazyExpression{typeof(*)},
-        ::Type{<:TransposeVector{Variable}},
+        ::Type{<:Transpose{Variable, <:AbstractVector{Variable}}},
         ::Type{<:AbstractMatrix{T}},
         ::Type{<:AbstractVector{Variable}}) where {T}
     x, Q, y = expr.args
@@ -234,14 +230,6 @@ function optimize(expr::LazyExpression{typeof(dot)}, ::Type{<:AbstractVector}, :
     x, y = expr.args
     dest = deepcopy(expr())
     LazyExpression(Functions.vecdot!, dest, x, y)
-end
-
-if VERSION < v"0.7-"
-    function optimize(expr::LazyExpression{typeof(vecdot)}, ::Type{<:AbstractVector}, ::Type{<:AbstractVector})
-        x, y = expr.args
-        dest = deepcopy(expr())
-        LazyExpression(Functions.vecdot!, dest, x, y)
-    end
 end
 
 function optimize(expr::LazyExpression{typeof(+)}, ::Type, ::Type, ::Type, ::Type...)
@@ -291,7 +279,7 @@ function optimize(expr::LazyExpression{typeof(vcat)}, ::Type{<:AbstractVector{<:
 end
 
 function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:AbstractVector})
-    LazyExpression(Compat.copyto!, deepcopy(expr()), expr.args[2])
+    LazyExpression(copyto!, deepcopy(expr()), expr.args[2])
 end
 
 function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Number}, ::Type{<:AbstractVector{<:Union{Number, Variable, AffineFunction}}})
@@ -310,12 +298,6 @@ function optimize(expr::LazyExpression{typeof(Base.vect)}, ::Type{<:Union{Number
     end
 end
 
-if isdefined(Base, :getproperty)
-    function optimize(expr::LazyExpression{typeof(Base.getproperty), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
-        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
-    end
-else
-    function optimize(expr::LazyExpression{typeof(Base.getfield), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
-        LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
-    end
+function optimize(expr::LazyExpression{typeof(Base.getproperty), <:Tuple{Any, Symbol}}, ::Type, ::Type{Symbol})
+    LazyExpression(Functions.GetField{expr.args[2]}(), expr.args[1])
 end

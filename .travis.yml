@@ -4,7 +4,6 @@ os:
   - linux
   - osx
 julia:
-  - 0.6
   - 1.0
   - nightly
 matrix:
@@ -17,4 +16,4 @@ branches:
 notifications:
   email: false
 after_success:
-  - julia -e 'if VERSION >= v"0.7-"; using Pkg; else; cd(Pkg.dir("Parametron")); end; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - julia -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

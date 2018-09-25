@@ -1,9 +1,8 @@
 module LazyExpressionTest
 
-using Compat
-using Compat.Test
-using Compat.Random
-using Compat.LinearAlgebra
+using Test
+using Random
+using LinearAlgebra
 using Parametron
 using StaticArrays
 

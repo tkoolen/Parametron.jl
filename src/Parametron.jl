@@ -36,8 +36,7 @@ export
     @constraint,
     @objective
 
-using Compat
-using Compat.LinearAlgebra
+using LinearAlgebra
 using DocStringExtensions
 
 @static if VERSION >= v"0.7-"
@@ -49,7 +48,6 @@ end
 import MathOptInterface
 import MacroTools: @capture, postwalk
 
-const LinearAlgebra = Compat.LinearAlgebra
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 

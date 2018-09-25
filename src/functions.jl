@@ -43,8 +43,7 @@ export
     AffineFunction,
     QuadraticFunction
 
-using Compat
-using Compat.LinearAlgebra
+using LinearAlgebra
 using DocStringExtensions
 
 @static if VERSION >= v"0.7-"
@@ -54,8 +53,6 @@ else
     const TransposeVector{T, V<:AbstractVector{T}} = RowVector{T, V}
     const AdjointVector{T, V<:AbstractVector{T}} = RowVector{T, ConjVector{T, V}}
 end
-
-const LinearAlgebra = Compat.LinearAlgebra
 
 coefftype(::Type{T}) where {T<:Number} = T
 
@@ -292,22 +289,22 @@ end
 
 
 # copyto!
-Compat.copyto!(f::AffineFunction, x::Number) = (zero!(f); f.constant[] = x; f)
-Compat.copyto!(f::AffineFunction, x::LinearTerm) = (zero!(f); push!(f.linear, x); f)
-Compat.copyto!(f::AffineFunction{T}, x::Variable) where {T} = copyto!(f, LinearTerm{T}(x))
-function Compat.copyto!(f::AffineFunction, x::AffineFunction)
+Base.copyto!(f::AffineFunction, x::Number) = (zero!(f); f.constant[] = x; f)
+Base.copyto!(f::AffineFunction, x::LinearTerm) = (zero!(f); push!(f.linear, x); f)
+Base.copyto!(f::AffineFunction{T}, x::Variable) where {T} = copyto!(f, LinearTerm{T}(x))
+function Base.copyto!(f::AffineFunction, x::AffineFunction)
     resize!(f.linear, length(x.linear))
     copyto!(f.linear, x.linear)
     f.constant[] = x.constant[]
     f
 end
-function Compat.copyto!(f::QuadraticFunction, x::Union{<:Number, <:LinearTerm, Variable, <:AffineFunction})
+function Base.copyto!(f::QuadraticFunction, x::Union{<:Number, <:LinearTerm, Variable, <:AffineFunction})
      empty!(f.quadratic)
      copyto!(f.affine, x)
      f
 end
-Compat.copyto!(f::QuadraticFunction, x::QuadraticTerm) = (zero!(f); push!(f.quadratic, x); f)
-function Compat.copyto!(f::QuadraticFunction, x::QuadraticFunction)
+Base.copyto!(f::QuadraticFunction, x::QuadraticTerm) = (zero!(f); push!(f.quadratic, x); f)
+function Base.copyto!(f::QuadraticFunction, x::QuadraticFunction)
     resize!(f.quadratic, length(x.quadratic))
     copyto!(f.quadratic, x.quadratic)
     copyto!(f.affine, x.affine)
@@ -503,9 +500,9 @@ Base.:^(x::AffineFunction, p::Integer) = Base.power_by_squaring(x, p)
 # Number-like interface
 const ParametronFunctions = Union{Variable, <:LinearTerm, <:QuadraticTerm, <:AffineFunction, <:QuadraticFunction}
 Base.transpose(x::ParametronFunctions) = x
-Compat.LinearAlgebra.dot(x::ParametronFunctions, y::ParametronFunctions) = x * y
-Compat.LinearAlgebra.dot(x::ParametronFunctions, y::Number) = x * y
-Compat.LinearAlgebra.dot(x::Number, y::ParametronFunctions) = x * y
+LinearAlgebra.dot(x::ParametronFunctions, y::ParametronFunctions) = x * y
+LinearAlgebra.dot(x::ParametronFunctions, y::Number) = x * y
+LinearAlgebra.dot(x::Number, y::ParametronFunctions) = x * y
 Base.to_power_type(x::ParametronFunctions) = x # TODO: remove once https://github.com/JuliaLang/julia/issues/24151 is fixed
 Base.zero(::T) where {T<:ParametronFunctions} = zero(T)
 Base.one(::T) where {T<:ParametronFunctions} = one(T)
@@ -530,7 +527,7 @@ function _vecdot!(dest::AffineFunction,
         x::AbstractVector{<:Union{Number, AffineFunction}},
         y::AbstractVector{<:Union{Number, AffineFunction}})
     zero!(dest)
-    @boundscheck Compat.axes(x) == Compat.axes(y) || throw(DimensionMismatch())
+    @boundscheck axes(x) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(x)
         muladd!(dest, x[i], y[i])
     end
@@ -728,7 +725,7 @@ function scale!(
     dest::AbstractVector{<:LinearTerm},
     x::Number,
     y::AbstractVector{Variable})
-    @boundscheck Compat.axes(dest) == Compat.axes(y) || throw(DimensionMismatch())
+    @boundscheck axes(dest) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x * y[i]
     end
@@ -739,7 +736,7 @@ function scale!(
     dest::AbstractVector{<:LinearTerm},
     x::AbstractVector{Variable},
     y::Number)
-    @boundscheck Compat.axes(dest) == Compat.axes(x) || throw(DimensionMismatch())
+    @boundscheck axes(dest) == axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x[i] * y
     end
@@ -750,7 +747,7 @@ function scale!(
     dest::AbstractVector{<:AffineFunction},
     x::Number,
     y::AbstractVector{<:AffineFunction})
-    @boundscheck Compat.axes(dest) == Compat.axes(y) || throw(DimensionMismatch())
+    @boundscheck axes(dest) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x, y[i])
     end
@@ -761,7 +758,7 @@ function scale!(
     dest::AbstractVector{<:AffineFunction},
     x::AbstractVector{<:AffineFunction},
     y::Number)
-    @boundscheck Compat.axes(dest) == Compat.axes(x) || throw(DimensionMismatch())
+    @boundscheck axes(dest) == axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x[i], y)
     end

@@ -5,6 +5,8 @@
 
 Parametron makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of optimization problems.
 
+## Example 1
+
 As an example, we'll use the [OSQP](https://github.com/oxfordcontrol/OSQP.jl) solver to solve the following quadratic program:
 
 ```
@@ -131,3 +133,53 @@ julia> @btime solve!($model)
 ```
 
 The performance and lack of allocations stems from the fact that the 'lazy expressions' used for the constraints and objective function are automatically optimized to calls to in-place functions.
+
+## Example 2
+
+Of course, in many real-world problems you are unlikely to update your parameters with random values.
+Here's an illustration showing how you might control these values more directly, fitting a vector
+`g` in a model
+
+```julia
+g'*X[:,i] ≈ p[i]
+```
+
+for a set of vectors in columns of `X`.
+
+```julia
+using Parametron, OSQP.MathOptInterfaceOSQP
+using Random
+
+n, m = 5, 15
+Xdata = randn(n, m)
+pdata = Vector{Float64}(undef, m);
+model = Model(OSQPOptimizer())
+X = Parameter(identity, Xdata, model)
+p = Parameter(identity, pdata, model)
+g = [Variable(model) for _ = 1:n]
+resid = @expression X'*g - p
+@objective(model, Minimize, resid'*resid)
+
+# Try with a specific ground-truth `g`
+ggt = randn(n)
+pdata .= Xdata'*ggt  # set the values in-place using `.=`
+solve!(model)
+
+julia> value.(model, g)
+5-element Array{Float64,1}:
+  0.6710700783457044
+  1.3999896266657308
+  0.5666247642146109
+ -1.018123491138979
+ -0.7464853233374451
+
+julia> ggt
+5-element Array{Float64,1}:
+  0.671068170731507
+  1.399985646860983
+  0.5666231534233734
+ -1.0181205969900424
+ -0.7464832010803155
+```
+
+You can re-fit the model after updating `pdata` and/or `Xdata` in-place.

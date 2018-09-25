@@ -121,7 +121,7 @@ end
     @test allocs == 0
     @test expr1() isa SVector{3, AffineFunction{Int}}
 
-    y = Parameter(identity, SVector{3}(x), m)
+    y = Parameter(m, val=SVector{3}(x))
     expr2 = @expression y + y
     @test expr2() == y() + y()
     allocs = @allocated expr2()
@@ -407,7 +407,7 @@ end
     model = MockModel()
     n, m = 5, 15
     Adata = randn(n, m)
-    A = Parameter(identity, Adata, model)
+    A = Parameter(model, val=Adata)
     x = [Variable(model) for _ = 1:n]
     resid = @expression A' * x
     @test resid() == Adata' * x

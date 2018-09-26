@@ -25,6 +25,7 @@ optimizer = OSQPOptimizer()
 
 # create a Parametron.Model, which holds problem information
 using Parametron
+using Random, LinearAlgebra
 model = Model(optimizer)
 
 # create decision variables and parameters
@@ -124,12 +125,12 @@ julia> value.(model, x)
 Note that the solver is warm-started. Also note that updating the parameters and solving a new QP instance is quite fast:
 
 ```julia
-julia> MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
+julia> using MathOptInterface; MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
 
 julia> using BenchmarkTools
 
 julia> @btime solve!($model)
-  85.077 μs (0 allocations: 0 bytes)
+  51.863 μs (0 allocations: 0 bytes)
 ```
 
 The performance and lack of allocations stems from the fact that the 'lazy expressions' used for the constraints and objective function are automatically optimized to calls to in-place functions.
@@ -141,10 +142,20 @@ Here's an illustration showing how you might control these values more directly,
 `g` in a model
 
 ```julia
-g'*X[:,i] ≈ p[i]
+g' * X[:,i] ≈ p[i]
 ```
 
 for a set of vectors in columns of `X`.
+
+This example also demonstrates a different style of updating parameters. Whereas in the previous example we
+supplied an 'update function' (e.g., `rand!`) that is automatically called when `solve!` is
+called, in this example we use the syntax
+
+```julia
+Parameter(model, val=some_manually_updated_mutable_object)
+```
+
+to create a `Parameter` whose value may be updated manually between calls to the `solve!` function.
 
 ```julia
 using Parametron, OSQP.MathOptInterfaceOSQP
@@ -154,8 +165,8 @@ n, m = 5, 15
 Xdata = randn(n, m)
 pdata = Vector{Float64}(undef, m);
 model = Model(OSQPOptimizer())
-X = Parameter(identity, Xdata, model)
-p = Parameter(identity, pdata, model)
+X = Parameter(model, val=Xdata)
+p = Parameter(model, val=pdata)
 g = [Variable(model) for _ = 1:n]
 resid = @expression X'*g - p
 @objective(model, Minimize, resid'*resid)

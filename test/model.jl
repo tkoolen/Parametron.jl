@@ -358,8 +358,8 @@ end
     Xdata = randn(n, m)
     pdata = Vector{Float64}(undef, m);
     model = Model(defaultoptimizer())
-    X = Parameter(identity, Xdata, model)
-    p = Parameter(identity, pdata, model)
+    X = Parameter(model, val=Xdata)
+    p = Parameter(model, val=pdata)
     g = [Variable(model) for _ = 1:n]
     resid = @expression X'*g - p
     @objective(model, Minimize, resid'*resid)

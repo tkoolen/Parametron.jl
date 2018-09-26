@@ -124,7 +124,7 @@ julia> model = Parametron.MockModel();
 
 julia> x = Variable.(1 : 2);
 
-julia> p = Parameter(identity, [1, 2], model)
+julia> p = Parameter(model, val=[1, 2])
 Parameter{Array{Int64,1}, …}(…)
 
 julia> expr = @expression p ⋅ x

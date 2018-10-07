@@ -617,8 +617,8 @@ Take the dot product of vectors `x` and `y`, storing the result in `dest`.
 function vecdot! end
 
 function _vecdot!(dest::AffineFunction,
-        x::AbstractVector{<:Union{Number, AffineFunction}},
-        y::AbstractVector{<:Union{Number, AffineFunction}})
+        x::AbstractArray{<:Union{Number, AffineFunction}},
+        y::AbstractArray{<:Union{Number, AffineFunction}})
     zero!(dest)
     @boundscheck axes(x) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(x)
@@ -628,10 +628,10 @@ function _vecdot!(dest::AffineFunction,
 end
 
 function _vecdot!(dest::AffineFunction,
-        x::AbstractVector{<:Union{Number, Variable, LinearTerm}},
-        y::AbstractVector{<:Union{Number, Variable, LinearTerm}})
+        x::AbstractArray{<:Union{Number, Variable, LinearTerm}},
+        y::AbstractArray{<:Union{Number, Variable, LinearTerm}})
     zero!(dest)
-    @boundscheck length(x) == length(y) || throw(DimensionMismatch())
+    @boundscheck axes(x) == axes(y) || throw(DimensionMismatch())
     linear = dest.linear
     resize!(linear, length(x))
     @inbounds for i in eachindex(x)
@@ -667,9 +667,9 @@ function vecdot!(dest, x, y)
     dot(x, y)
 end
 
-vecdot!(dest::AffineFunction, x::AbstractVector{<:Number}, y::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}) =
+vecdot!(dest::AffineFunction, x::AbstractArray{<:Number}, y::AbstractArray{<:Union{Variable, LinearTerm, AffineFunction}}) =
     _vecdot!(dest, x, y)
-vecdot!(dest::AffineFunction, x::AbstractVector{<:Union{Variable, LinearTerm, AffineFunction}}, y::AbstractVector{<:Number}) =
+vecdot!(dest::AffineFunction, x::AbstractArray{<:Union{Variable, LinearTerm, AffineFunction}}, y::AbstractArray{<:Number}) =
     _vecdot!(dest, x, y)
 vecdot!(dest::QuadraticFunction, x::AbstractVector{<:Union{Variable, LinearTerm}}, y::AbstractVector{<:Union{Variable, LinearTerm}}) =
     _vecdot!(dest, x, y)

@@ -161,7 +161,6 @@ julia> term = 3 * y * x
 julia> canonicalize(term)
 3 * x1 * x2
 ```
-
 """
 function canonicalize(term::QuadraticTerm)
     QuadraticTerm(term.coeff, Variable.(minmax(term.rowvar.index, term.colvar.index))...)
@@ -198,7 +197,6 @@ julia> vals = Dict(x => 4, y => -3);
 julia> affinefun(vals)
 3
 ```
-
 """
 struct AffineFunction{T}
     linear::Vector{LinearTerm{T}}

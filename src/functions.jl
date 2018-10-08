@@ -268,8 +268,6 @@ sorted by variable index and with terms corresponding to the same variable combi
 julia> x, y = Variable.(1 : 2);
 
 julia> f = y + x - 2 * y + 3
-
-julia> f = y + x - 2 * y + 3
 1 * x2 + 1 * x1 + -2 * x2 + 3
 
 julia> canonicalize(f)
@@ -372,7 +370,7 @@ Return a canonicalized version of `f::QuadraticFunction`. See [`canonicalize(f::
 and [`canonicalize(f::AffineFunction)`](@ref) for more details. Quadratic terms are ordered lexicographically
 by `(term.rowvar, term.colvar)`.
 
-# Examples
+# Example
 
 ```julia
 julia> x, y = Variable.(1 : 2);

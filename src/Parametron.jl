@@ -48,6 +48,7 @@ const MOIU = MathOptInterface.Utilities
 
 @enum Sense Minimize Maximize
 
+include("util.jl")
 include("functions.jl")
 include("parameter.jl")
 

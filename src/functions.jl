@@ -43,10 +43,31 @@ export
     AffineFunction,
     QuadraticFunction
 
+export
+    canonicalize,
+    canonicalize!
+
 using LinearAlgebra
 using DocStringExtensions
 
+using Parametron: sort_and_combine!
+
 coefftype(::Type{T}) where {T<:Number} = T
+
+
+"""
+$(SIGNATURES)
+
+Re-express a term or function in a canonical form.
+"""
+function canonicalize end
+
+"""
+$(SIGNATURES)
+
+In-place version of [`canonicalize`](@ref).
+"""
+function canonicalize! end
 
 # Variable
 
@@ -85,6 +106,11 @@ Base.:-(var::Variable) = LinearTerm(-1, var)
 Base.promote_rule(::Type{LinearTerm{T}}, ::Type{Variable}) where {T} = LinearTerm{T}
 Base.convert(::Type{LinearTerm{T}}, var::Variable) where {T} = LinearTerm{T}(var)
 
+function combine(t1::LinearTerm, t2::LinearTerm)
+    t1.var === t2.var || throw(ArgumentError())
+    LinearTerm(t1.coeff + t2.coeff, t1.var)
+end
+
 """
 $(TYPEDEF)
 
@@ -118,6 +144,35 @@ for Term in [:LinearTerm, :QuadraticTerm]
     end
 end
 
+"""
+$(SIGNATURES)
+
+Re-express the `QuadraticTerm` `term` so that the index of `term.rowvar` is
+less than or equal to that of `term.colvar`.
+
+# Example
+
+```julia
+julia> x, y = Variable.(1 : 2);
+
+julia> term = 3 * y * x
+3 * x2 * x1
+
+julia> canonicalize(term)
+3 * x1 * x2
+```
+"""
+function canonicalize(term::QuadraticTerm)
+    QuadraticTerm(term.coeff, Variable.(minmax(term.rowvar.index, term.colvar.index))...)
+end
+
+function combine(t1::QuadraticTerm, t2::QuadraticTerm)
+    t1 = canonicalize(t1)
+    t2 = canonicalize(t2)
+    t1.rowvar == t2.rowvar && t1.colvar == t2.colvar || throw(ArgumentError())
+    QuadraticTerm(t1.coeff + t2.coeff, t1.rowvar, t1.colvar)
+end
+
 
 # AffineFunction
 """
@@ -129,7 +184,7 @@ A scalar affine function represented by a sum of [`LinearTerm`](@ref)s and a con
 given values for the decision variables. The call operator takes an `AbstractDict{Variable, T}`
 collection, which associates values with variables.
 
-# Examples
+# Example
 
 ```julia
 julia> x, y = Variable.(1 : 2);
@@ -194,6 +249,30 @@ function (f::AffineFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     ret
 end
 
+function canonicalize!(f::AffineFunction)
+    sort_and_combine!(f.linear; by=term -> term.var.index, combine=combine, alg=Base.Sort.QuickSort)
+    f
+end
+
+"""
+$(SIGNATURES)
+
+Return a canonicalized version of `f::AffineFunction`, namely with linear terms
+sorted by variable index and with terms corresponding to the same variable combined.
+
+# Example
+
+```julia
+julia> x, y = Variable.(1 : 2);
+
+julia> f = y + x - 2 * y + 3
+1 * x2 + 1 * x1 + -2 * x2 + 3
+
+julia> canonicalize(f)
+1 * x1 + -1 * x2 + 3
+```
+"""
+canonicalize(f::AffineFunction) = canonicalize!(AffineFunction(f))
 
 # QuadraticFunction
 
@@ -274,6 +353,34 @@ function (f::QuadraticFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     end
     ret
 end
+
+function canonicalize!(f::QuadraticFunction)
+    canonicalize!(f.affine)
+    canonicalized_variable_index_tuple = term -> (term = canonicalize(term); (term.rowvar.index, term.colvar.index))
+    sort_and_combine!(f.quadratic; by=canonicalized_variable_index_tuple, combine=combine, alg=Base.Sort.QuickSort)
+    f
+end
+
+"""
+$(SIGNATURES)
+
+Return a canonicalized version of `f::QuadraticFunction`. See [`canonicalize(f::QuadraticTerm)`](@ref)
+and [`canonicalize(f::AffineFunction)`](@ref) for more details. Quadratic terms are ordered lexicographically
+by `(term.rowvar, term.colvar)`.
+
+# Example
+
+```julia
+julia> x, y = Variable.(1 : 2);
+
+julia> f = x * y + y * x + y + y + x - y
+1 * x1 * x2 + 1 * x2 * x1 + 1 * x2 + 1 * x2 + 1 * x1 + -1 * x2 + 0
+
+julia> canonicalize(f)
+2 * x1 * x2 + 1 * x1 + 1 * x2 + 0
+```
+"""
+canonicalize(f::QuadraticFunction) = canonicalize!(QuadraticFunction(f))
 
 
 # copyto!

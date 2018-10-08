@@ -6,6 +6,23 @@ using StaticArrays: @SVector
 using Parametron
 using Parametron.Functions
 
+@testset "canonicalize" begin
+    x = Variable(1)
+    y = Variable(2)
+
+    @test canonicalize(3 * x * y) === canonicalize(3 * y * x) == QuadraticTerm(3, x, y)
+    @test canonicalize(y + x - 2 * y + 3) == x - y + 3
+    @test canonicalize(x * y + y * x + y + y + x - y + 4) == 2 * x * y + x + y + 4
+
+    f = x * y + y * x + y + y + x - y + 4
+    global allocs
+    for i = 1 : 2
+        fcopy = QuadraticFunction(f)
+        allocs = @allocated canonicalize!(fcopy)
+    end
+    @test allocs == 0
+end
+
 @testset "LinearTerm" begin
     x = Variable(1)
     @test LinearTerm(4.5, x) === 4.5 * x

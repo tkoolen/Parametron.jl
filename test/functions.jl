@@ -194,6 +194,13 @@ end
     end
 end
 
+@testset "dot with matrix variables" begin
+    inds = LinearIndices((1:2, 1:2))
+    x = [Variable(inds[i]) for i in CartesianIndices(inds)]
+    w = [0.1 0.2; 0.3 0.4]
+    @test x ⋅ w == w ⋅ x == 0.1 * x[1] + 0.3 * x[2] + 0.2 * x[3] + 0.4 * x[4] + 0.0
+end
+
 @testset "Matrix operations" begin
     x = Variable.(1 : 2)
     A1 = [1.0 2.0; 3.0 4.0]

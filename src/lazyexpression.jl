@@ -12,11 +12,11 @@ A `LazyExpression` may be evaluated by simply calling it with no arguments.
 
 # Example
 
-```julia
+```jldoctest; setup = :(using Parametron)
 julia> a = ones(2); b = ones(2);
 
 julia> expr = Parametron.LazyExpression(+, a, b)
-LazyExpression{Base.#+, …}(…)
+LazyExpression{typeof(+), …}(…)
 
 julia> expr()
 2-element Array{Float64,1}:
@@ -100,17 +100,14 @@ are simply evaluated straight away.
 
 Creating an expression that represents `p * x1`, where `p` is a parameter that always evaluates to 2:
 
-```julia
-julia> model = Parametron.MockModel(); # a 'mock model' used only for demonstrations and tests
-
-julia> x1 = Variable(model)
-Parametron.Functions.Variable(1)
+```jldoctest; setup = :(using Parametron; model = Parametron.mock_model())
+julia> x1 = Variable(model);
 
 julia> p = Parameter{Int}(() -> 2, model)
 Parameter{Int64, …}(…)
 
 julia> expr = @expression p * x1
-LazyExpression{FunctionWrapper{…}(LazyExpression{Base.#*, …}(…))}(…)
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(*), …}(…))}(…)
 
 julia> expr()
 2 * x1
@@ -119,8 +116,8 @@ julia> expr()
 Creating an expression that represents `p ⋅ x`, where `p` is a parameter that evaluates to [1, 2] and
 `x` is a vector of two variables:
 
-```julia
-julia> model = Parametron.MockModel();
+```jldoctest; setup = :(using Parametron; using LinearAlgebra; model = Parametron.mock_model())
+julia> model = Parametron.mock_model();
 
 julia> x = Variable.(1 : 2);
 
@@ -128,7 +125,7 @@ julia> p = Parameter(model, val=[1, 2])
 Parameter{Array{Int64,1}, …}(…)
 
 julia> expr = @expression p ⋅ x
-LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#vecdot!, …}(…))}(…)
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(Parametron.Functions.vecdot!), …}(…))}(…)
 
 julia> expr()
 1 * x1 + 2 * x2 + 0

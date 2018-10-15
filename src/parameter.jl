@@ -13,10 +13,7 @@ The update function will then be called when the parameter itself is called.
 
 # Examples
 
-```julia
-julia> model = Parametron.MockModel() # a 'mock model' used only for demonstrations and tests
-Parametron.MockModel(Parametron.Parameter[], Base.RefValue{Int64}(1))
-
+```jldoctest; setup = :(using Parametron; model = Parametron.mock_model())
 julia> value = Ref(1)
 Base.RefValue{Int64}(1)
 
@@ -42,21 +39,21 @@ struct Parameter{T, F, InPlace}
     val::Base.RefValue{T}
 
     # out-of-place
-    """
+    @doc """
     $(SIGNATURES)
 
     Create a new 'out-of-place' `Parameter` with an update function `f` that takes
     no arguments and returns a value of type `T`.
-    """
+    """ ->
     Parameter{T}(f::F, model) where {T, F} = addparameter!(model, new{T, F, false}(Ref(true), f, Base.RefValue{T}()))
 
     # in-place
-    """
+    @doc """
     $(SIGNATURES)
 
     Create a new 'in-place' `Parameter` with an update function `f` that takes
     `val` as its argument and updates it in place.
-    """
+    """ ->
     Parameter(f::F, val::T, model) where {T, F} = addparameter!(model, new{T, F, true}(Ref(true), f, Base.RefValue(val)))
 end
 

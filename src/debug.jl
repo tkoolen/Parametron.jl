@@ -31,38 +31,38 @@ Utility function that can be used to track down allocations in [`LazyExpression`
 
 The following session shows the output of `findallocs` if the expression doesn't allocate:
 
-```julia
-julia> model = Parametron.MockModel(); x = [Variable(model) for i in 1 : 2];
+```jldoctest; setup = :(using Parametron; model = Parametron.mock_model())
+julia> x = [Variable(model) for i in 1 : 2];
 
 julia> param = Parameter{Int}(() -> 2, model)
 Parameter{Int64, …}(…)
 
 julia> expr = @expression param * x
-LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#scale!, …}(…))}(…)
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(Parametron.Functions.scale!), …}(…))}(…)
 
 julia> Parametron.findallocs(expr)
-LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#scale!, …}(…))}(…): 0 bytes
-  [1]: Array{Parametron.Functions.LinearTerm{Int64},1}
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(Parametron.Functions.scale!), …}(…))}(…): 0 bytes
+  [1]: Array{LinearTerm{Int64},1}
   [2]: Parameter{Int64, …}(…): 0 bytes
-  [3]: Array{Parametron.Functions.Variable,1}
+  [3]: Array{Variable,1}
 ```
 
 In this session, `param` allocates, and `findallocs` reports the allocation:
 
-```julia
-julia> model = Parametron.MockModel(); x = [Variable(model) for i in 1 : 2];
+```jldoctest; setup = :(using Parametron; using LinearAlgebra; model = Parametron.mock_model())
+julia> x = [Variable(model) for i in 1 : 2];
 
 julia> param = Parameter(() -> zeros(2), model)
 Parameter{Array{Float64,1}, …}(…)
 
 julia> expr = @expression param ⋅ x
-LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#vecdot!, …}(…))}(…)
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(Parametron.Functions.vecdot!), …}(…))}(…)
 
 julia> Parametron.findallocs(expr)
-LazyExpression{FunctionWrapper{…}(LazyExpression{Parametron.Functions.#vecdot!, …}(…))}(…): 0 bytes
-  [1]: Parametron.Functions.AffineFunction{Float64}
+LazyExpression{FunctionWrapper{…}(LazyExpression{typeof(Parametron.Functions.vecdot!), …}(…))}(…): 0 bytes
+  [1]: AffineFunction{Float64}
   [2]: Parameter{Array{Float64,1}, …}(…): 96 bytes
-  [3]: Array{Parametron.Functions.Variable,1}
+  [3]: Array{Variable,1}
 ```
 """
 findallocs(x) = findallocs(stdout, x)

@@ -412,6 +412,8 @@ end
 $(SIGNATURES)
 
 Add `x` to `f`, modifying `f`.
+
+$(METHODLIST)
 """
 function add! end
 
@@ -432,6 +434,8 @@ add!(dest, x, y) = (copyto!(dest, x); add!(dest, y); dest)
 $(SIGNATURES)
 
 Subtract `x` from `f`, modifying `f`.
+
+$(METHODLIST)
 """
 function subtract! end
 
@@ -471,6 +475,8 @@ subtract!(dest, x, y) = (copyto!(dest, x); subtract!(dest, y); dest)
 $(SIGNATURES)
 
 Multiply `x` by `y` and add the result to `dest`.
+
+$(METHODLIST)
 """
 function muladd! end
 
@@ -613,6 +619,8 @@ Base.conj(x::ParametronFunctions) = x
 $(SIGNATURES)
 
 Take the dot product of vectors `x` and `y`, storing the result in `dest`.
+
+$(METHODLIST)
 """
 function vecdot! end
 
@@ -688,6 +696,8 @@ vecdot!(dest::QuadraticFunction, x::AbstractVector{<:AffineFunction}, y::Abstrac
 $(SIGNATURES)
 
 Add vector `x` to vector `y`, storing the result in `dest`.
+
+$(METHODLIST)
 """
 function vecadd! end
 
@@ -695,6 +705,8 @@ function vecadd! end
 $(SIGNATURES)
 
 Subtract vector `y` from vector `x`, storing the result in `dest`.
+
+$(METHODLIST)
 """
 function vecsubtract! end
 
@@ -717,6 +729,8 @@ end
 $(SIGNATURES)
 
 Compute the matrix-vector product `A * x`, storing the result in `y`.
+
+$(METHODLIST)
 """
 function matvecmul! end
 
@@ -780,6 +794,8 @@ end
 $(SIGNATURES)
 
 Compute the bilinear form `transpose(x) * A * y`, storing the result in `dest`.
+
+$(METHODLIST)
 """
 function bilinearmul! end
 
@@ -811,6 +827,8 @@ end
 $(SIGNATURES)
 
 Scale a vector by a number and store the result in `dest`.
+
+$(METHODLIST)
 """
 function scale! end
 
@@ -905,6 +923,8 @@ end
 $(SIGNATURES)
 
 Vertically concatenate a number of vectors, storing the result in `y`.
+
+$(METHODLIST)
 """
 function vcat! end
 

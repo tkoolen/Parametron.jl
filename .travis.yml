@@ -12,8 +12,17 @@ matrix:
 branches:
   only:
     - master
-    - /^v[0-9]+\.[0-9]+\.[0-9]+$/ # version tags
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/ # version tags
 notifications:
   email: false
 after_success:
   - julia -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+jobs:
+  include:
+    - stage: Documentation
+      julia: 1.0
+      os: linux
+      script:
+        - julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+        - julia --project=docs --color=yes docs/make.jl
+      after_success: skip

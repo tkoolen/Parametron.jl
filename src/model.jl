@@ -197,15 +197,14 @@ Add a constraint to the model using operators `==`, `<=`, `>=`, or `in`/`∈`.
 `in`/`∈` may only be used for single variables with a right hand side that is
 one of:
 
-* ℤ or Integers
-* {0, 1} or ZeroOne
+* `ℤ` or `Integers`
+* `{0, 1}` or `ZeroOne`
 
 # Examples
 
-Let `model` be a `Model` instance. The constraint `x >= zeros(2)` can
-be added as follows:
+The constraint `x >= zeros(2)` can be added to a model as follows:
 
-```julia
+```jldoctest constraint-macro; setup = :(using Parametron; model = Parametron.mock_model())
 julia> x = [Variable(model) for i = 1 : 2];
 
 julia> @constraint(model, x >= zeros(2))
@@ -214,8 +213,8 @@ julia> @constraint(model, x >= zeros(2))
 The constraint that variable `x[1]` should be an integer can be
 expressed using:
 
-```julia
-julia> @constraint(model, x ∈ ℤ)
+```jldoctest constraint-macro
+julia> @constraint(model, x[1] ∈ ℤ)
 ```
 """
 macro constraint(model, expr)
@@ -255,10 +254,11 @@ Set the objective function of the model.
 Let `model` be a `Model` instance. The objective 'minimize x ⋅ x' can
 be added as follows:
 
-```julia
+```jldoctest; setup = :(using Parametron; using LinearAlgebra; model = Parametron.mock_model())
 julia> x = [Variable(model) for i = 1 : 2];
 
-julia> @objective model Minimize x ⋅ x
+julia> @objective model Minimize x ⋅ x;
+```
 """
 macro objective(model, sense, expr)
     quote

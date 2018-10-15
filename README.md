@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/tkoolen/Parametron.jl.svg?branch=master)](https://travis-ci.org/tkoolen/Parametron.jl)
 [![codecov.io](http://codecov.io/github/tkoolen/Parametron.jl/coverage.svg?branch=master)](http://codecov.io/github/tkoolen/Parametron.jl?branch=master)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://tkoolen.github.io/Parametron.jl/latest)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://tkoolen.github.io/Parametron.jl/stable)
 
 Parametron makes it easy to set up and efficiently (ideally, with *zero* allocation) solve instances of a **parameterized family** of optimization problems.
 

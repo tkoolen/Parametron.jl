@@ -7,10 +7,10 @@ using Parametron
 using StaticArrays
 
 import Random
-import Parametron: setdirty!, MockModel
+import Parametron: setdirty!, mock_model
 
 @testset "basics" begin
-    model = MockModel()
+    model = mock_model()
     a = 2
     b = Parameter{Int}(() -> 3, model)
     c = 4
@@ -23,7 +23,7 @@ end
 end
 
 @testset "parameter" begin
-    model = MockModel()
+    model = mock_model()
     a = 3
     b = 4.0
     cval = Ref(0)
@@ -37,7 +37,7 @@ end
 end
 
 @testset "nested" begin
-    model = MockModel()
+    model = mock_model()
     a = 3
     b = 4.0
     cval = Ref(5)
@@ -66,7 +66,7 @@ using .M
     updatemat! = let scalar = scalar # https://github.com/JuliaLang/julia/issues/15276
         mat -> (mat.angular .= scalar[]; mat.linear .= scalar[]; mat)
     end
-    model = MockModel()
+    model = mock_model()
     pmat = Parameter(updatemat!, mat, model)
     pmat_angular = @expression angular(pmat)
     result = pmat_angular()
@@ -82,7 +82,7 @@ using .M
 end
 
 @testset "matvecmul!" begin
-    m = MockModel()
+    m = mock_model()
     A = Parameter(rand!, zeros(3, 4), m)
     x = Variable.(1 : 4)
     expr = @expression A * x
@@ -108,7 +108,7 @@ end
 end
 
 @testset "StaticArrays" begin
-    m = MockModel()
+    m = mock_model()
     A = Parameter{SMatrix{3, 3, Int, 9}}(m) do
         @SMatrix ones(Int, 3, 3)
     end
@@ -136,7 +136,7 @@ end
 end
 
 @testset "mul! optimization" begin
-    m = MockModel()
+    m = mock_model()
     weight = Parameter(() -> 3, m)
     x = Variable.(1 : 3)
     expr = @expression weight * (x ⋅ x)
@@ -148,7 +148,7 @@ end
 end
 
 @testset "scale! optimization" begin
-    model = MockModel()
+    model = mock_model()
     x = [Variable(model) for _ in 1 : 3]
     dt = Parameter{Float64}(model) do
         2.0
@@ -187,7 +187,7 @@ end
 
 @testset "vcat optimization" begin
     Random.seed!(42)
-    m = MockModel()
+    m = mock_model()
     A = Parameter(rand!, zeros(3, 4), m)
     B = Parameter(rand!, zeros(3, 3), m)
     x = Variable.(1 : 4)
@@ -245,7 +245,7 @@ end
 end
 
 @testset "vect optimization" begin
-    m = MockModel()
+    m = mock_model()
     x = Variable.(1:2)
     p = Parameter(m) do
         SVector(1., 2.)
@@ -263,7 +263,7 @@ end
 end
 
 @testset "convert optimization" begin
-    m = MockModel()
+    m = mock_model()
     A = Parameter{SMatrix{3, 3, Int, 9}}(m) do
         @SMatrix ones(Int, 3, 3)
     end
@@ -277,7 +277,7 @@ end
 end
 
 @testset "vecdot optimization" begin
-    m = MockModel()
+    m = mock_model()
     x = Variable.(1:3)
     p = Parameter(m) do
         SVector(1., 2., 3.)
@@ -298,7 +298,7 @@ end
 end
 
 @testset "adjoint optimization" begin
-    m = MockModel()
+    m = mock_model()
     x = Variable.(1:2)
     p = Parameter(m) do
         @SMatrix [1. 2.; 3. 4.]
@@ -314,7 +314,7 @@ end
 end
 
 @testset "issue 26" begin
-    model = MockModel()
+    model = mock_model()
     n = 2
     x = Variable.(1 : n)
     vals = Dict(zip(x, rand(n)))
@@ -328,7 +328,7 @@ end
 end
 
 @testset "issue 32" begin
-    model = MockModel()
+    model = mock_model()
     v = [Variable(model) for _ in 1:2]
     v0 = zeros(2)
     Δt = 0.01
@@ -347,7 +347,7 @@ end
 end
 
 @testset "issue 23, fully qualified names" begin
-    model = MockModel()
+    model = mock_model()
     p = Parameter{Int}(() -> 2, model)
     expr = @expression Base.:+(2, p)
     @test expr() == 4
@@ -362,7 +362,7 @@ function allocations_in_local_scope(x)
 end
 
 @testset "getfield optimization" begin
-    model = MockModel()
+    model = mock_model()
     p = Parameter(model) do
         MyWrapper(rand())
     end
@@ -382,7 +382,7 @@ end
 end
 
 @testset "hcat" begin
-    model = MockModel()
+    model = mock_model()
     p = Parameter(model) do
         rand(3, 3)
     end
@@ -393,7 +393,7 @@ end
 end
 
 @testset "getindex" begin
-    model = MockModel()
+    model = mock_model()
     p = Parameter(model) do
         rand(3, 3)
     end
@@ -404,7 +404,7 @@ end
 end
 
 @testset "A' * x (https://github.com/tkoolen/Parametron.jl/pull/79#issuecomment-423732633)" begin
-    model = MockModel()
+    model = mock_model()
     n, m = 5, 15
     Adata = randn(n, m)
     A = Parameter(model, val=Adata)

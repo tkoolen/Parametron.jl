@@ -26,7 +26,8 @@ export
     objectivevalue,
     terminationstatus,
     primalstatus,
-    dualstatus
+    dualstatus,
+    findallocs
 
 # macros
 export

@@ -3,12 +3,12 @@ module ParameterTest
 using Test
 using Parametron
 
-import Parametron: setdirty!, MockModel
+import Parametron: setdirty!, mock_model
 
 @testset "Parameter" begin
     # out-of-place parameter
     val = Ref(true)
-    model = MockModel()
+    model = mock_model()
     p1 = Parameter{Bool}(() -> val[], model)
     @test p1()
 

@@ -9,7 +9,7 @@ Model
 ## Creating Decision variables
 
 ```@docs
-Variable
+Variable(::Model)
 ```
 
 ## Adding constraints and an objective function

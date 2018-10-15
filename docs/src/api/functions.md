@@ -11,6 +11,7 @@ Functions
 ## Types
 
 ```@docs
+Variable
 LinearTerm
 QuadraticTerm
 AffineFunction

@@ -81,6 +81,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "api/functions/#Parametron.Functions.Variable",
+    "page": "Functions",
+    "title": "Parametron.Functions.Variable",
+    "category": "type",
+    "text": "struct Variable\n\nRepresents a single decision variable.\n\n\n\n\n\n"
+},
+
+{
     "location": "api/functions/#Parametron.Functions.LinearTerm",
     "page": "Functions",
     "title": "Parametron.Functions.LinearTerm",
@@ -117,7 +125,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Types",
     "category": "section",
-    "text": "LinearTerm\nQuadraticTerm\nAffineFunction\nQuadraticFunction"
+    "text": "Variable\nLinearTerm\nQuadraticTerm\nAffineFunction\nQuadraticFunction"
 },
 
 {
@@ -409,11 +417,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "api/model/#Parametron.Functions.Variable",
+    "location": "api/model/#Parametron.Functions.Variable-Tuple{Model}",
     "page": "Model",
     "title": "Parametron.Functions.Variable",
-    "category": "type",
-    "text": "struct Variable\n\nRepresents a single decision variable.\n\n\n\n\n\n"
+    "category": "method",
+    "text": "Variable(m)\n\n\nCreate a new decision variable (Variable) associated with the model.\n\n\n\n\n\n"
 },
 
 {
@@ -421,7 +429,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Model",
     "title": "Creating Decision variables",
     "category": "section",
-    "text": "Variable"
+    "text": "Variable(::Model)"
 },
 
 {
@@ -485,7 +493,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Model",
     "title": "Parametron.update!",
     "category": "function",
-    "text": "Re-evaluate the expressions used to build the constraints and objective function of Model m.\n\nUsers should generally not need to call this function directly, as it is automatically called in solve!.\n\n\n\n\n\n"
+    "text": "update!(m)\n\n\nRe-evaluate the expressions used to build the constraints and objective function of Model m.\n\nUsers should generally not need to call this function directly, as it is automatically called in solve!.\n\n\n\n\n\n"
 },
 
 {

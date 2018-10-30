@@ -26,6 +26,5 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/tkoolen/Parametron.jl.git",
-    target = "build"
+    repo = "github.com/tkoolen/Parametron.jl.git"
 )

@@ -27,14 +27,12 @@ version = "0.5.0"
 
 [[Documenter]]
 deps = ["Base64", "DocStringExtensions", "InteractiveUtils", "LibGit2", "Logging", "Markdown", "Pkg", "REPL", "Random", "Test", "Unicode"]
-git-tree-sha1 = "d3d031cf580435034c8d3b7219a9799cdc9b6939"
-repo-rev = "a9c03611eea5f8721d1ce3b388be90db569e8fc5"
-repo-url = "https://github.com/JuliaDocs/Documenter.jl.git"
+git-tree-sha1 = "9f2135e0e7ecb63f9c3ef73ea15a31d8cdb79bb7"
 uuid = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-version = "0.19.6+"
+version = "0.20.0"
 
 [[FunctionWrappers]]
-deps = ["Compat", "Pkg"]
+deps = ["Compat"]
 git-tree-sha1 = "49bf793ebd37db5adaa7ac1eae96c2c97ec86db5"
 uuid = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 version = "1.0.0"
@@ -67,7 +65,7 @@ deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MathOptInterface]]
-deps = ["Compat", "Pkg", "Unicode"]
+deps = ["Compat", "Unicode"]
 git-tree-sha1 = "6bb3530fb9ed16a2f9324d6de54ec5ab9e5822e0"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 version = "0.5.1"
@@ -76,10 +74,10 @@ version = "0.5.1"
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[Parametron]]
-deps = ["DocStringExtensions", "Documenter", "FunctionWrappers", "LinearAlgebra", "MacroTools", "MathOptInterface", "Pkg", "Random", "Test"]
+deps = ["DocStringExtensions", "FunctionWrappers", "LinearAlgebra", "MacroTools", "MathOptInterface", "Random", "Test"]
 path = ".."
 uuid = "41fac6d6-0ffa-5bcc-b863-17dd4947be41"
-version = "0.3.0+"
+version = "0.4.0+"
 
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]

@@ -152,6 +152,8 @@ macro expression(expr)
                 return :(getindex($(x.args...)))
             elseif x.head == Symbol("'")
                 return :(adjoint($(x.args...)))
+            elseif x.head == :tuple
+                return :(tuple($(x.args...)))
             end
         end
         return x

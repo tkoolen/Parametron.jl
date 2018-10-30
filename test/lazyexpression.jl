@@ -413,4 +413,9 @@ end
     @test resid() == Adata' * x
 end
 
+@testset "tuple (https://github.com/tkoolen/Parametron.jl/issues/88)" begin
+    A = [1, 2, 3, 4]
+    @test(@expression(reshape(A, (2, 2))) == reshape(A, (2, 2)))
 end
+
+end # module

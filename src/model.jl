@@ -13,8 +13,8 @@ mutable struct Model{T, O<:MOI.AbstractOptimizer}
         backend = ParametronMOIModel{T}()
         initialized = false
         objective = Objective(T, @expression zero(AffineFunction{T}))
-        MOI.set!(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
-        MOI.set!(backend, MOI.ObjectiveFunction{typeof(objective.f)}(), objective.f)
+        MOI.set(backend, MOI.ObjectiveSense(), MOI.OptimizationSense(Minimize))
+        MOI.set(backend, MOI.ObjectiveFunction{typeof(objective.f)}(), objective.f)
         constraints = Constraints{T}()
         model_var_to_optimizer = Vector{MOI.VariableIndex}()
         new{T, O}(params, backend, optimizer, initialized, objective, constraints, model_var_to_optimizer)
@@ -48,7 +48,7 @@ Create a new decision variable (`Variable`) associated with the model.
 """
 function Variable(m::Model)
     m.initialized && error("Model has already been initialized.")
-    index = MOI.addvariable!(m.backend)
+    index = MOI.add_variable(m.backend)
     Variable(index)
 end
 
@@ -60,38 +60,38 @@ Set the objective function and optimization sense (`Minimize` or `Maximize`).
 function setobjective!(m::Model{T}, sense::Sense, expr) where T
     m.initialized && error("Model was already initialized. setobjective! can only be called before initialization.")
     m.objective = Objective(T, expr)
-    MOI.set!(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
-    MOI.set!(m.backend, MOI.ObjectiveFunction{typeof(m.objective.f)}(), m.objective.f)
+    MOI.set(m.backend, MOI.ObjectiveSense(), MOI.OptimizationSense(sense))
+    MOI.set(m.backend, MOI.ObjectiveFunction{typeof(m.objective.f)}(), m.objective.f)
     nothing
 end
 
-function addconstraint!(m::Model, constraint::Constraint)
-    m.initialized && error("Model was already initialized. addconstraint! can only be called before initialization.")
-    constraint.modelindex = MOI.addconstraint!(m.backend, constraint.f, constraint.set)
+function add_constraint(m::Model, constraint::Constraint)
+    m.initialized && error("Model was already initialized. add_constraint can only be called before initialization.")
+    constraint.modelindex = MOI.add_constraint(m.backend, constraint.f, constraint.set)
     push!(m.constraints, constraint)
     nothing
 end
 
 _add_nonnegative_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.GreaterThan(zero(T))))
+    add_constraint(m, Constraint(T, expr, MOI.GreaterThan(zero(T))))
 _add_nonpositive_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.LessThan(zero(T))))
+    add_constraint(m, Constraint(T, expr, MOI.LessThan(zero(T))))
 _add_zero_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.EqualTo(zero(T))))
+    add_constraint(m, Constraint(T, expr, MOI.EqualTo(zero(T))))
 
 _add_nonnegative_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.Nonnegatives(length(val))))
+    add_constraint(m, Constraint(T, expr, MOI.Nonnegatives(length(val))))
 _add_nonpositive_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.Nonpositives(length(val))))
+    add_constraint(m, Constraint(T, expr, MOI.Nonpositives(length(val))))
 _add_zero_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    addconstraint!(m, Constraint(T, expr, MOI.Zeros(length(val))))
+    add_constraint(m, Constraint(T, expr, MOI.Zeros(length(val))))
 
 add_nonnegative_constraint!(m::Model, expr) = _add_nonnegative_constraint!(m, expr, evalarg(expr))
 add_nonpositive_constraint!(m::Model, expr) = _add_nonpositive_constraint!(m, expr, evalarg(expr))
 add_zero_constraint!(m::Model, expr) = _add_zero_constraint!(m, expr, evalarg(expr))
 
-add_integer_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer()))
-add_binary_constraint!(m::Model, x::Variable) = addconstraint!(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne()))
+add_integer_constraint!(m::Model, x::Variable) = add_constraint(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.Integer()))
+add_binary_constraint!(m::Model, x::Variable) = add_constraint(m, Constraint(MOI.SingleVariable(MOI.VariableIndex(x)), MOI.ZeroOne()))
 
 function mapindices!(m::Model, idxmap)
     mapindices!(m.constraints, idxmap)
@@ -111,7 +111,7 @@ Users should generally not need to call this function directly, as it is automat
 called the first time [`solve!`](@ref) is called on a `Model`.
 """
 @noinline function initialize!(m::Model)
-    indexmap = MOI.copy!(m.optimizer, m.backend)
+    indexmap = MOI.copy_to(m.optimizer, m.backend)
     mapindices!(m, indexmap)
     m.initialized = true
     nothing

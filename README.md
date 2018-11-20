@@ -22,8 +22,8 @@ Here's the basic problem setup:
 
 ```julia
 # create a MathOptInterface optimizer instance
-using OSQP.MathOptInterfaceOSQP
-optimizer = OSQPOptimizer()
+using OSQP
+optimizer = OSQP.Optimizer()
 
 # create a Parametron.Model, which holds problem information
 using Parametron
@@ -127,7 +127,7 @@ julia> value.(model, x)
 Note that the solver is warm-started. Also note that updating the parameters and solving a new QP instance is quite fast:
 
 ```julia
-julia> using MathOptInterface; MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
+julia> using MathOptInterface; using OSQP.MathOptInterfaceOSQP: OSQPSettings; MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
 
 julia> using BenchmarkTools
 
@@ -166,7 +166,7 @@ using Random
 n, m = 5, 15
 Xdata = randn(n, m)
 pdata = Vector{Float64}(undef, m);
-model = Model(OSQPOptimizer())
+model = Model(OSQP.Optimizer())
 X = Parameter(model, val=Xdata)
 p = Parameter(model, val=pdata)
 g = [Variable(model) for _ = 1:n]

@@ -4,7 +4,8 @@ using Test
 using Random
 using LinearAlgebra
 using Parametron
-using OSQP.MathOptInterfaceOSQP
+using OSQP
+using OSQP.MathOptInterfaceOSQP: OSQPSettings
 using GLPK
 using StaticArrays: SVector
 
@@ -13,12 +14,12 @@ import MathOptInterface
 const MOI = MathOptInterface
 
 function defaultoptimizer()
-    optimizer = OSQPOptimizer()
-    MOI.set!(optimizer, OSQPSettings.Verbose(), false)
-    MOI.set!(optimizer, OSQPSettings.EpsAbs(), 1e-8)
-    MOI.set!(optimizer, OSQPSettings.EpsRel(), 1e-16)
-    MOI.set!(optimizer, OSQPSettings.MaxIter(), 10000)
-    MOI.set!(optimizer, OSQPSettings.AdaptiveRhoInterval(), 25) # required for deterministic behavior
+    optimizer = OSQP.Optimizer()
+    MOI.set(optimizer, OSQPSettings.Verbose(), false)
+    MOI.set(optimizer, OSQPSettings.EpsAbs(), 1e-8)
+    MOI.set(optimizer, OSQPSettings.EpsRel(), 1e-16)
+    MOI.set(optimizer, OSQPSettings.MaxIter(), 10000)
+    MOI.set(optimizer, OSQPSettings.AdaptiveRhoInterval(), 25) # required for deterministic behavior
     optimizer
 end
 
@@ -235,11 +236,11 @@ end
 glpk_works = false
 try
     optimizer = GLPK.Optimizer()
-    x = MOI.addvariable!(optimizer)
+    x = MOI.add_variable(optimizer)
     f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
     s = MOI.GreaterThan(0.0)
-    ci = MOI.addconstraint!(optimizer, f, s)
-    MOI.set!(optimizer, MOI.ConstraintFunction(), ci, f)
+    ci = MOI.add_constraint(optimizer, f, s)
+    MOI.set(optimizer, MOI.ConstraintFunction(), ci, f)
     global glpk_works = true
 catch e
     if !(e isa MOI.UnsupportedAttribute{MOI.ConstraintFunction})

@@ -1,13 +1,13 @@
 # MOI backend AbstractModel
 MOIU.@model(ParametronMOIModel, # modelname
-    (ZeroOne, Integer), # scalarsets
-    (LessThan, GreaterThan, EqualTo), # typedscalarsets
-    (Zeros, Nonnegatives, Nonpositives), # vectorsets
+    (MOI.ZeroOne, MOI.Integer), # scalarsets
+    (MOI.LessThan, MOI.GreaterThan, MOI.EqualTo), # typedscalarsets
+    (MOI.Zeros, MOI.Nonnegatives, MOI.Nonpositives), # vectorsets
     (), # typedvectorsets
-    (SingleVariable,), # scalarfunctions
-    (ScalarAffineFunction,), # typedscalarfunctions
+    (MOI.SingleVariable,), # scalarfunctions
+    (MOI.ScalarAffineFunction,), # typedscalarfunctions
     (), # vectorfunctions
-    (VectorAffineFunction,) # typedvectorfunctions
+    (MOI.VectorAffineFunction,) # typedvectorfunctions
 )
 
 
@@ -127,7 +127,7 @@ end
 
 function update!(objective::Objective{E, F}, optimizer::MOI.AbstractOptimizer, varmap) where {E, F}
     update!(objective.f, objective.expr(), varmap)
-    MOI.set!(optimizer, MOI.ObjectiveFunction{F}(), objective.f)
+    MOI.set(optimizer, MOI.ObjectiveFunction{F}(), objective.f)
     nothing
 end
 
@@ -160,7 +160,7 @@ end
 
 function update!(constraint::Constraint, optimizer::MOI.AbstractOptimizer, varmap)
     update!(constraint.f, constraint.expr(), varmap)
-    MOI.set!(optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.f)
+    MOI.set(optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.f)
     nothing
 end
 update!(constraint::Constraint{Nothing}, optimizer::MOI.AbstractOptimizer, varmap) = nothing

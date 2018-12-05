@@ -833,9 +833,9 @@ $(METHODLIST)
 function scale! end
 
 function scale!(
-    dest::AbstractVector{<:LinearTerm},
-    x::Number,
-    y::AbstractVector{Variable})
+        dest::AbstractVector{<:LinearTerm},
+        x::Number,
+        y::AbstractVector{Variable})
     @boundscheck axes(dest) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x * y[i]
@@ -844,9 +844,9 @@ function scale!(
 end
 
 function scale!(
-    dest::AbstractVector{<:LinearTerm},
-    x::AbstractVector{Variable},
-    y::Number)
+        dest::AbstractVector{<:LinearTerm},
+        x::AbstractVector{Variable},
+        y::Number)
     @boundscheck axes(dest) == axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         dest[i] = x[i] * y
@@ -855,9 +855,9 @@ function scale!(
 end
 
 function scale!(
-    dest::AbstractVector{<:AffineFunction},
-    x::Number,
-    y::AbstractVector{<:AffineFunction})
+        dest::AbstractVector{<:AffineFunction},
+        x::Number,
+        y::AbstractVector{<:AffineFunction})
     @boundscheck axes(dest) == axes(y) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x, y[i])
@@ -866,9 +866,9 @@ function scale!(
 end
 
 function scale!(
-    dest::AbstractVector{<:AffineFunction},
-    x::AbstractVector{<:AffineFunction},
-    y::Number)
+        dest::AbstractVector{<:AffineFunction},
+        x::AbstractVector{<:AffineFunction},
+        y::Number)
     @boundscheck axes(dest) == axes(x) || throw(DimensionMismatch())
     @inbounds for i in eachindex(dest)
         mul!(dest[i], x[i], y)
@@ -928,16 +928,16 @@ $(METHODLIST)
 """
 function vcat! end
 
-function _vcat!(dest::AbstractVector{<:AffineFunction},
-                i::Integer)
+function _vcat!(dest::AbstractVector{<:AffineFunction}, i::Integer)
     @boundscheck i == lastindex(dest) + 1 || throw(DimensionMismatch())
     dest
 end
 
-function _vcat!(dest::AbstractVector{<:AffineFunction},
-                i::Integer,
-                source::AbstractVector{<:AffineFunction},
-                remaining::Vararg{<:AbstractVector{<:AffineFunction}, N}) where {N}
+function _vcat!(
+        dest::AbstractVector{<:AffineFunction},
+        i::Integer,
+        source::AbstractVector{<:AffineFunction},
+        remaining::Vararg{<:AbstractVector{<:AffineFunction}, N}) where {N}
     @boundscheck i >= firstindex(dest) && (i + length(source) - 1) <= lastindex(dest) || throw(DimensionMismatch())
     @inbounds for s in source
         copyto!(dest[i], s)

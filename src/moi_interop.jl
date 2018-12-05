@@ -112,22 +112,26 @@ moi_to_native_type(::Type{MOI.SingleVariable}) = Nothing
 struct Objective{E, F}
     expr::WrappedExpression{E}
     f::F
+    isconstant::Bool
 end
 
 function Objective(::Type{T}, expr) where T
     val = evalarg(expr)
     E = canonical_function_type(typeof(val), T)
     converted = @expression convert(E, expr)
+    isconstant = converted isa E # i.e., it's just a value; not a LazyExpression or a Parameter
     wrapped = convert(WrappedExpression{E}, converted)
     f = make_moi_equivalent(E)
     F = typeof(f)
     update!(f, wrapped())
-    Objective{E, F}(wrapped, f)
+    Objective{E, F}(wrapped, f, isconstant)
 end
 
 function update!(objective::Objective{E, F}, optimizer::MOI.AbstractOptimizer, varmap) where {E, F}
-    update!(objective.f, objective.expr(), varmap)
-    MOI.set(optimizer, MOI.ObjectiveFunction{F}(), objective.f)
+    if !objective.isconstant
+        update!(objective.f, objective.expr(), varmap)
+        MOI.set(optimizer, MOI.ObjectiveFunction{F}(), objective.f)
+    end
     nothing
 end
 
@@ -137,6 +141,7 @@ mutable struct Constraint{E, F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
     expr::WrappedExpression{E}
     f::F
     set::S
+    isconstant::Bool
     modelindex::MOI.ConstraintIndex{F, S}
     optimizerindex::MOI.ConstraintIndex{F, S}
 
@@ -144,23 +149,26 @@ mutable struct Constraint{E, F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
         val = evalarg(expr)
         E = canonical_function_type(typeof(val), T)
         converted = @expression convert(E, expr)
+        isconstant = converted isa E # i.e., it's just a value; not a LazyExpression or a Parameter
         wrapped = convert(WrappedExpression{E}, converted)
         f = make_moi_equivalent(E)
         F = typeof(f)
         update!(f, wrapped())
-        new{E, F, S}(wrapped, f, set)
+        new{E, F, S}(wrapped, f, set, isconstant)
     end
 
     function Constraint(f::F, set::S) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
         E = Nothing
         wrapped = convert(WrappedExpression{E}, @expression nothing)
-        new{E, F, S}(wrapped, f, set)
+        new{E, F, S}(wrapped, f, set, true)
     end
 end
 
 function update!(constraint::Constraint, optimizer::MOI.AbstractOptimizer, varmap)
-    update!(constraint.f, constraint.expr(), varmap)
-    MOI.set(optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.f)
+    if !constraint.isconstant
+        update!(constraint.f, constraint.expr(), varmap)
+        MOI.set(optimizer, MOI.ConstraintFunction(), constraint.optimizerindex, constraint.f)
+    end
     nothing
 end
 update!(constraint::Constraint{Nothing}, optimizer::MOI.AbstractOptimizer, varmap) = nothing

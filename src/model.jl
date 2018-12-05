@@ -72,19 +72,23 @@ function add_constraint(m::Model, constraint::Constraint)
     nothing
 end
 
-_add_nonnegative_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.GreaterThan(zero(T))))
-_add_nonpositive_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.LessThan(zero(T))))
-_add_zero_constraint!(m::Model{T}, expr, val::AffineFunction) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.EqualTo(zero(T))))
+for F in (:AffineFunction, QuadraticFunction)
+    @eval begin
+        _add_nonnegative_constraint!(m::Model{T}, expr, val::$F) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.GreaterThan(zero(T))))
+        _add_nonpositive_constraint!(m::Model{T}, expr, val::$F) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.LessThan(zero(T))))
+        _add_zero_constraint!(m::Model{T}, expr, val::$F) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.EqualTo(zero(T))))
 
-_add_nonnegative_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.Nonnegatives(length(val))))
-_add_nonpositive_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.Nonpositives(length(val))))
-_add_zero_constraint!(m::Model{T}, expr, val::AbstractVector{<:AffineFunction}) where {T} =
-    add_constraint(m, Constraint(T, expr, MOI.Zeros(length(val))))
+        _add_nonnegative_constraint!(m::Model{T}, expr, val::AbstractVector{<:$F}) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.Nonnegatives(length(val))))
+        _add_nonpositive_constraint!(m::Model{T}, expr, val::AbstractVector{<:$F}) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.Nonpositives(length(val))))
+        _add_zero_constraint!(m::Model{T}, expr, val::AbstractVector{<:$F}) where {T} =
+            add_constraint(m, Constraint(T, expr, MOI.Zeros(length(val))))
+    end
+end
 
 add_nonnegative_constraint!(m::Model, expr) = _add_nonnegative_constraint!(m, expr, evalarg(expr))
 add_nonpositive_constraint!(m::Model, expr) = _add_nonpositive_constraint!(m, expr, evalarg(expr))

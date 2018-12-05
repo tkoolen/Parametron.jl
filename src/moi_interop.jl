@@ -5,7 +5,7 @@ MOIU.@model(ParametronMOIModel, # modelname
     (MOI.Zeros, MOI.Nonnegatives, MOI.Nonpositives), # vectorsets
     (), # typedvectorsets
     (MOI.SingleVariable,), # scalarfunctions
-    (MOI.ScalarAffineFunction,), # typedscalarfunctions
+    (MOI.ScalarAffineFunction, MOI.ScalarQuadraticFunction), # typedscalarfunctions
     (), # vectorfunctions
     (MOI.VectorAffineFunction,) # typedvectorfunctions
 )
@@ -105,6 +105,7 @@ canonical_function_type(::Type{<:QuadraticFunction}, ::Type{T}) where {T} = Quad
 moi_to_native_type(::Type{MOI.ScalarAffineFunction}) = AffineFunction{T} where T
 moi_to_native_type(::Type{MOI.ScalarQuadraticFunction}) = QuadraticFunction{T} where T
 moi_to_native_type(::Type{MOI.VectorAffineFunction}) = Vector{AffineFunction{T}} where T
+moi_to_native_type(::Type{MOI.VectorQuadraticFunction}) = Vector{QuadraticFunction{T}} where T
 moi_to_native_type(::Type{MOI.SingleVariable}) = Nothing
 
 
@@ -182,6 +183,12 @@ let
                         (MOI.VectorAffineFunction{T} where T, MOI.Nonnegatives),
                         (MOI.VectorAffineFunction{T} where T, MOI.Nonpositives),
                         (MOI.VectorAffineFunction{T} where T, MOI.Zeros),
+                        (MOI.ScalarQuadraticFunction{T} where T, MOI.GreaterThan{T} where T),
+                        (MOI.ScalarQuadraticFunction{T} where T, MOI.LessThan{T} where T),
+                        (MOI.ScalarQuadraticFunction{T} where T, MOI.EqualTo{T} where T),
+                        (MOI.VectorQuadraticFunction{T} where T, MOI.Nonnegatives),
+                        (MOI.VectorQuadraticFunction{T} where T, MOI.Nonpositives),
+                        (MOI.VectorQuadraticFunction{T} where T, MOI.Zeros),
                         (MOI.SingleVariable, MOI.Integer),
                         (MOI.SingleVariable, MOI.ZeroOne)]
     fieldnames = Symbol[]

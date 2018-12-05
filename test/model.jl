@@ -233,21 +233,6 @@ end
     @test value(model, x) ≈ 1.0 atol=1e-8
 end
 
-glpk_works = false
-try
-    optimizer = GLPK.Optimizer()
-    x = MOI.add_variable(optimizer)
-    f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
-    s = MOI.GreaterThan(0.0)
-    ci = MOI.add_constraint(optimizer, f, s)
-    MOI.set(optimizer, MOI.ConstraintFunction(), ci, f)
-    global glpk_works = true
-catch e
-    if !(e isa MOI.UnsupportedAttribute{MOI.ConstraintFunction})
-        rethrow(e)
-    end
-end
-
 @testset "integer basics" begin
     # https://github.com/JuliaOpt/GLPK.jl/issues/58
     @testset "scalar constraint" begin
@@ -374,6 +359,38 @@ end
     solve!(model)
     gv = value.(model, g)
     @test gv ≈ ggt rtol=0.01
+end
+
+@testset "Quadratic constraints" begin
+    if !haskey(ENV, "CI")
+        using Gurobi # not in REQUIRE...
+        rng = MersenneTwister(1)
+        optimizer = Gurobi.Optimizer(OutputFlag=0)
+        model = Model(optimizer)
+
+        direction = Parameter(x -> normalize!(randn!(rng, x)), zeros(2), model)
+        zmax = Parameter{Float64}(() -> rand(rng), model)
+
+        x = Variable(model)
+        y = Variable(model)
+        z = Variable(model)
+        μ = 0.7
+
+        @constraint model x^2 + y^2 <= μ^2 * z^2
+        @constraint model z >= 0
+        @constraint model z <= zmax
+        @objective model Maximize direction ⋅ [x, y]
+
+        for i = 1 : 5
+            solve!(model)
+            @test terminationstatus(model) == MOI.Success
+            @test primalstatus(model) == MOI.FeasiblePoint
+
+            xval, yval, zval = value.(model, (x, y, z))
+            @test zval ≈ zmax() atol=1e-6
+            @test [xval, yval] ⋅ direction() ≈ zval * μ atol=1e-6
+        end
+    end
 end
 
 end # module

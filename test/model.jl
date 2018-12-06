@@ -7,11 +7,16 @@ using Parametron
 using OSQP
 using OSQP.MathOptInterfaceOSQP: OSQPSettings
 using GLPK
+using SCS
 using StaticArrays: SVector
 
 import MathOptInterface
+import MathOptInterface.Utilities
+import MathOptInterface.Bridges
 
 const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities
+const MOIB = MathOptInterface.Bridges
 
 function defaultoptimizer()
     optimizer = OSQP.Optimizer()
@@ -362,34 +367,29 @@ end
 end
 
 @testset "Quadratic constraints" begin
-    if !haskey(ENV, "CI")
-        using Gurobi # not in REQUIRE...
-        rng = MersenneTwister(1)
-        optimizer = Gurobi.Optimizer(OutputFlag=0)
-        model = Model(optimizer)
+    # optimizer = MOIB.QuadtoSOC{Float64}(MOIU.CachingOptimizer(MOIB.QuadtoSOCInstance{Float64}(), SCS.Optimizer(verbose=0)))
+    optimizer = MOIB.QuadtoSOC{Float64}(MOIU.CachingOptimizer(MOIB.QuadtoSOCInstance{Float64}(), SCS.Optimizer(verbose=0)))
 
-        direction = Parameter(x -> normalize!(randn!(rng, x)), zeros(2), model)
-        zmax = Parameter{Float64}(() -> rand(rng), model)
+    rng = MersenneTwister(1)
+    model = Model(optimizer)
 
-        x = Variable(model)
-        y = Variable(model)
-        z = Variable(model)
-        μ = 0.7
+    direction = Parameter(x -> normalize!(randn!(rng, x)), zeros(2), model)
+    zmax = Parameter{Float64}(() -> rand(rng), model)
 
-        @constraint model x^2 + y^2 <= μ^2 * z^2
-        @constraint model z >= 0
-        @constraint model z <= zmax
-        @objective model Maximize direction ⋅ [x, y]
+    x = Variable(model)
+    y = Variable(model)
+    μ = 0.7
 
-        for i = 1 : 5
-            solve!(model)
-            @test terminationstatus(model) == MOI.Success
-            @test primalstatus(model) == MOI.FeasiblePoint
+    @constraint model x^2 + y^2 <= μ^2 * zmax^2
+    @objective model Maximize direction ⋅ [x, y]
 
-            xval, yval, zval = value.(model, (x, y, z))
-            @test zval ≈ zmax() atol=1e-6
-            @test [xval, yval] ⋅ direction() ≈ zval * μ atol=1e-6
-        end
+    for i = 1 : 5
+        solve!(model)
+        @test terminationstatus(model) == MOI.Success
+        @test primalstatus(model) == MOI.FeasiblePoint
+
+        xval, yval = value.(model, (x, y))
+        @test [xval, yval] ⋅ direction() ≈ zmax() * μ atol=1e-6
     end
 end
 

@@ -1,3 +1,4 @@
 OSQP
 StaticArrays 0.7
 GLPK
+SCS

@@ -205,7 +205,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecdot!",
     "category": "function",
-    "text": "Take the dot product of vectors x and y, storing the result in dest.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:675.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:678.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:680.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:682.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:684.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:686.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:688.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:690.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:692.\n\n\n\n\n\n"
+    "text": "Take the dot product of vectors x and y, storing the result in dest.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:678.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:681.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:683.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:685.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:687.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:689.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:691.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:693.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:695.\n\n\n\n\n\n"
 },
 
 {
@@ -213,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecadd!",
     "category": "function",
-    "text": "Add vector x to vector y, storing the result in dest.\n\nvecadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:716.\n\n\n\n\n\n"
+    "text": "Add vector x to vector y, storing the result in dest.\n\nvecadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:719.\n\n\n\n\n\n"
 },
 
 {
@@ -221,7 +221,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecsubtract!",
     "category": "function",
-    "text": "Subtract vector y from vector x, storing the result in dest.\n\nvecsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:716.\n\n\n\n\n\n"
+    "text": "Subtract vector y from vector x, storing the result in dest.\n\nvecsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:719.\n\n\n\n\n\n"
 },
 
 {
@@ -229,7 +229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.matvecmul!",
     "category": "function",
-    "text": "Compute the matrix-vector product A * x, storing the result in y.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:741.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:766.\n\nmatvecmul!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:790.\n\n\n\n\n\n"
+    "text": "Compute the matrix-vector product A * x, storing the result in y.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:744.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:769.\n\nmatvecmul!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:793.\n\n\n\n\n\n"
 },
 
 {
@@ -237,7 +237,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.bilinearmul!",
     "category": "function",
-    "text": "Compute the bilinear form transpose(x) * A * y, storing the result in dest.\n\nbilinearmul!(dest, Q, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:807.\n\n\n\n\n\n"
+    "text": "Compute the bilinear form transpose(x) * A * y, storing the result in dest.\n\nbilinearmul!(dest, Q, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:810.\n\n\n\n\n\n"
 },
 
 {
@@ -245,7 +245,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.scale!",
     "category": "function",
-    "text": "Scale a vector by a number and store the result in dest.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:839.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:850.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:861.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:872.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:880.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:885.\n\n\n\n\n\n"
+    "text": "Scale a vector by a number and store the result in dest.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:842.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:853.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:864.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:875.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:883.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:888.\n\n\n\n\n\n"
 },
 
 {
@@ -253,7 +253,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vcat!",
     "category": "function",
-    "text": "Vertically concatenate a number of vectors, storing the result in y.\n\nvcat!(y, args)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:951.\n\n\n\n\n\n"
+    "text": "Vertically concatenate a number of vectors, storing the result in y.\n\nvcat!(y, args)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:954.\n\n\n\n\n\n"
 },
 
 {
@@ -493,7 +493,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Model",
     "title": "Parametron.update!",
     "category": "function",
-    "text": "Re-evaluate the expressions used to build the constraints and objective function of Model m.\n\nUsers should generally not need to call this function directly, as it is automatically called in solve!.\n\n\n\n\n\n"
+    "text": "update!(m)\n\n\nRe-evaluate the expressions used to build the constraints and objective function of Model m.\n\nUsers should generally not need to call this function directly, as it is automatically called in solve!.\n\n\n\n\n\n"
 },
 
 {

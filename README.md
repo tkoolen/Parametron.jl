@@ -127,7 +127,7 @@ julia> value.(model, x)
 Note that the solver is warm-started. Also note that updating the parameters and solving a new QP instance is quite fast:
 
 ```julia
-julia> using MathOptInterface; using OSQP.MathOptInterfaceOSQP: OSQPSettings; MathOptInterface.set!(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
+julia> using MathOptInterface; using OSQP.MathOptInterfaceOSQP: OSQPSettings; MathOptInterface.set(optimizer, OSQPSettings.Verbose(), false) # silence the optimizer
 
 julia> using BenchmarkTools
 

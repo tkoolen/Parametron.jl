@@ -2,7 +2,7 @@ module FunctionsTest
 
 using Test
 using LinearAlgebra
-using StaticArrays: @SVector
+using StaticArrays: @SVector, SVector
 using Parametron
 using Parametron.Functions
 
@@ -246,6 +246,15 @@ end
     @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 5), v1, v2)
     @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 6), v1, v2, v3)
     @test_throws DimensionMismatch Functions.vcat!(zeros(AffineFunction{Float64}, 8), v1, v2, v3)
+end
+
+@testset "scalar times vector" begin
+    x = Variable(1)
+    y = Variable(2)
+    @test 1 * SVector(x, y) === SVector(x, y) * 1 === SVector(1 * x, 1 * y)
+    @test x * SVector(x, y) === SVector(x * x, x * y)
+    @test SVector(x, y) * y === SVector(x * y, y * y)
+    @test x^2 * SVector(1, 2) === SVector(1, 2) * x^2 === SVector(x^2, 2 * x^2)
 end
 
 end # module

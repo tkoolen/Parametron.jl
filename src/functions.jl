@@ -613,6 +613,9 @@ Base.conj(x::ParametronFunctions) = x
 
 
 # Array operations
+Base.:*(x::ParametronFunctions, y::AbstractArray) = broadcast(*, x, y)
+Base.:*(x::AbstractArray, y::ParametronFunctions) = broadcast(*, x, y)
+
 # TODO: reduce code duplication
 
 """

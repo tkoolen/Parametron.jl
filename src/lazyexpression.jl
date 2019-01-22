@@ -281,11 +281,11 @@ function optimize(expr::LazyExpression{typeof(convert)}, ::Type, ::Type{<:Abstra
     LazyExpression(copyto!, deepcopy(expr()), expr.args[2])
 end
 
-function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Number}, ::Type{<:AbstractVector{<:Union{Number, Variable, AffineFunction}}})
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Number}, ::Type{<:Vector{<:Union{Number, Variable, AffineFunction}}})
     LazyExpression(Functions.scale!, deepcopy(expr()), expr.args...)
 end
 
-function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:AbstractVector{<:Union{Number, Variable, AffineFunction}}}, ::Type{<:Number})
+function optimize(expr::LazyExpression{typeof(*)}, ::Type{<:Vector{<:Union{Number, Variable, AffineFunction}}}, ::Type{<:Number})
     LazyExpression(Functions.scale!, deepcopy(expr()), expr.args...)
 end
 

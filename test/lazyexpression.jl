@@ -418,4 +418,13 @@ end
     @test(@expression(reshape(A, (2, 2))) == reshape(A, (2, 2)))
 end
 
+@testset "scale SVector" begin
+    model = mock_model()
+    x = Parameter(model, val=SVector(Variable(1), Variable(2)))
+    expr = @expression x * 3
+    @test expr() == SVector(3 * x.val[][1], 3 * x.val[][2])
+    expr = @expression 3 * x
+    @test expr() == SVector(x.val[][1] * 3, x.val[][2] * 3)
+end
+
 end # module

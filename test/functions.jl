@@ -13,6 +13,10 @@ using Parametron.Functions
     @test canonicalize(3 * x * y) === canonicalize(3 * y * x) == QuadraticTerm(3, x, y)
     @test canonicalize(y + x - 2 * y + 3) == x - y + 3
     @test canonicalize(x * y + y * x + y + y + x - y + 4) == 2 * x * y + x + y + 4
+    @test canonicalize(0 * y + x + 1) == x + 0 * y + 1
+    @test canonicalize(0 * y + x + 1; prune_zero=true) == x + 1
+    @test canonicalize(0 * y^2 + x^2 + 0 * x + y + 1) == x^2 + 0 * y^2 + 0 * x + y + 1
+    @test canonicalize(0 * y^2 + x^2 + 0 * x + y + 1; prune_zero=true) == x^2 + y + 1
 
     f = x * y + y * x + y + y + x - y + 4
     global allocs

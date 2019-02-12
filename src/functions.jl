@@ -45,7 +45,9 @@ export
 
 export
     canonicalize,
-    canonicalize!
+    canonicalize!,
+    prune_zero,
+    prune_zero!
 
 using LinearAlgebra
 using DocStringExtensions
@@ -68,6 +70,21 @@ $(SIGNATURES)
 In-place version of [`canonicalize`](@ref).
 """
 function canonicalize! end
+
+"""
+$(METHODLIST)
+
+Prune terms with (approximately) zero coefficients.
+"""
+function prune_zero end
+
+"""
+$(METHODLIST)
+
+In-place version of [`prune_zero`](@ref).
+"""
+function prune_zero! end
+
 
 # Variable
 
@@ -274,6 +291,13 @@ julia> canonicalize(f)
 """
 canonicalize(f::AffineFunction) = canonicalize!(AffineFunction(f))
 
+function prune_zero!(f::AffineFunction{T}; atol=zero(T)) where T
+    filter!(term -> abs(getcoeff(term)) > atol, f.linear)
+    f
+end
+
+prune_zero(f::AffineFunction; kwargs...) = prune_zero!(AffineFunction(f); kwargs...)
+
 # QuadraticFunction
 
 """
@@ -381,6 +405,14 @@ julia> canonicalize(f)
 ```
 """
 canonicalize(f::QuadraticFunction) = canonicalize!(QuadraticFunction(f))
+
+function prune_zero!(f::QuadraticFunction{T}; atol=zero(T)) where T
+    prune_zero!(f.affine)
+    filter!(term -> abs(getcoeff(term)) > atol, f.quadratic)
+    f
+end
+
+prune_zero(f::QuadraticFunction; kwargs...) = prune_zero!(QuadraticFunction(f); kwargs...)
 
 
 # copyto!

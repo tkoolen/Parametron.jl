@@ -28,6 +28,11 @@ canonicalize(::QuadraticFunction)
 canonicalize!
 ```
 
+```@docs
+prune_zero
+prune_zero!
+```
+
 ## In-place math functions (unexported)
 
 ```@docs

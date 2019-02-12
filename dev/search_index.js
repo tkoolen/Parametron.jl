@@ -169,11 +169,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "api/functions/#Parametron.Functions.prune_zero",
+    "page": "Functions",
+    "title": "Parametron.Functions.prune_zero",
+    "category": "function",
+    "text": "prune_zero(f; kwargs...)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:299.\n\nprune_zero(f; kwargs...)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:415.\n\nPrune terms with (approximately) zero coefficients.\n\n\n\n\n\n"
+},
+
+{
+    "location": "api/functions/#Parametron.Functions.prune_zero!",
+    "page": "Functions",
+    "title": "Parametron.Functions.prune_zero!",
+    "category": "function",
+    "text": "prune_zero!(f; atol)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:295.\n\nprune_zero!(f; atol)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:410.\n\nIn-place version of prune_zero.\n\n\n\n\n\n"
+},
+
+{
     "location": "api/functions/#Exported-functions-1",
     "page": "Functions",
     "title": "Exported functions",
     "category": "section",
-    "text": "canonicalize\ncanonicalize(::QuadraticTerm)\ncanonicalize(::AffineFunction)\ncanonicalize(::QuadraticFunction)\ncanonicalize!"
+    "text": "canonicalize\ncanonicalize(::QuadraticTerm)\ncanonicalize(::AffineFunction)\ncanonicalize(::QuadraticFunction)\ncanonicalize!prune_zero\nprune_zero!"
 },
 
 {
@@ -181,7 +197,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.add!",
     "category": "function",
-    "text": "Add x to f, modifying f.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:420.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:421.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:422.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:423.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:425.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:426.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:427.\n\nadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:429.\n\n\n\n\n\n"
+    "text": "Add x to f, modifying f.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:452.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:453.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:454.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:455.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:457.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:458.\n\nadd!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:459.\n\nadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:461.\n\n\n\n\n\n"
 },
 
 {
@@ -189,7 +205,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.subtract!",
     "category": "function",
-    "text": "Subtract x from f, modifying f.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:442.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:443.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:444.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:446.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:455.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:456.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:457.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:458.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:459.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:461.\n\nsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:470.\n\n\n\n\n\n"
+    "text": "Subtract x from f, modifying f.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:474.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:475.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:476.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:478.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:487.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:488.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:489.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:490.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:491.\n\nsubtract!(f, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:493.\n\nsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:502.\n\n\n\n\n\n"
 },
 
 {
@@ -197,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.muladd!",
     "category": "function",
-    "text": "Multiply x by y and add the result to dest.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:484.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:492.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:495.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:503.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:506.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:514.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:517.\n\n\n\n\n\n"
+    "text": "Multiply x by y and add the result to dest.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:516.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:524.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:527.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:535.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:538.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:546.\n\nmuladd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:549.\n\n\n\n\n\n"
 },
 
 {
@@ -205,7 +221,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecdot!",
     "category": "function",
-    "text": "Take the dot product of vectors x and y, storing the result in dest.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:678.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:681.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:683.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:685.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:687.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:689.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:691.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:693.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:695.\n\n\n\n\n\n"
+    "text": "Take the dot product of vectors x and y, storing the result in dest.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:710.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:713.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:715.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:717.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:719.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:721.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:723.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:725.\n\nvecdot!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:727.\n\n\n\n\n\n"
 },
 
 {
@@ -213,7 +229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecadd!",
     "category": "function",
-    "text": "Add vector x to vector y, storing the result in dest.\n\nvecadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:719.\n\n\n\n\n\n"
+    "text": "Add vector x to vector y, storing the result in dest.\n\nvecadd!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:751.\n\n\n\n\n\n"
 },
 
 {
@@ -221,7 +237,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vecsubtract!",
     "category": "function",
-    "text": "Subtract vector y from vector x, storing the result in dest.\n\nvecsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:719.\n\n\n\n\n\n"
+    "text": "Subtract vector y from vector x, storing the result in dest.\n\nvecsubtract!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:751.\n\n\n\n\n\n"
 },
 
 {
@@ -229,7 +245,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.matvecmul!",
     "category": "function",
-    "text": "Compute the matrix-vector product A * x, storing the result in y.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:744.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:769.\n\nmatvecmul!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:793.\n\n\n\n\n\n"
+    "text": "Compute the matrix-vector product A * x, storing the result in y.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:776.\n\nmatvecmul!(y, A, x)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:801.\n\nmatvecmul!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:825.\n\n\n\n\n\n"
 },
 
 {
@@ -237,7 +253,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.bilinearmul!",
     "category": "function",
-    "text": "Compute the bilinear form transpose(x) * A * y, storing the result in dest.\n\nbilinearmul!(dest, Q, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:810.\n\n\n\n\n\n"
+    "text": "Compute the bilinear form transpose(x) * A * y, storing the result in dest.\n\nbilinearmul!(dest, Q, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:842.\n\n\n\n\n\n"
 },
 
 {
@@ -245,7 +261,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.scale!",
     "category": "function",
-    "text": "Scale a vector by a number and store the result in dest.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:842.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:853.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:864.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:875.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:883.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:888.\n\n\n\n\n\n"
+    "text": "Scale a vector by a number and store the result in dest.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:874.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:885.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:896.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:907.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:915.\n\nscale!(dest, x, y)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:920.\n\n\n\n\n\n"
 },
 
 {
@@ -253,7 +269,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Functions",
     "title": "Parametron.Functions.vcat!",
     "category": "function",
-    "text": "Vertically concatenate a number of vectors, storing the result in y.\n\nvcat!(y, args)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:954.\n\n\n\n\n\n"
+    "text": "Vertically concatenate a number of vectors, storing the result in y.\n\nvcat!(y, args)\n\ndefined at /home/travis/build/tkoolen/Parametron.jl/src/functions.jl:986.\n\n\n\n\n\n"
 },
 
 {

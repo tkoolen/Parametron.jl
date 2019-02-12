@@ -45,7 +45,9 @@ export
 
 export
     canonicalize,
-    canonicalize!
+    canonicalize!,
+    prune_zero,
+    prune_zero!
 
 using LinearAlgebra
 using DocStringExtensions
@@ -68,6 +70,21 @@ $(SIGNATURES)
 In-place version of [`canonicalize`](@ref).
 """
 function canonicalize! end
+
+"""
+$(METHODLIST)
+
+Prune terms with (approximately) zero coefficients.
+"""
+function prune_zero end
+
+"""
+$(METHODLIST)
+
+In-place version of [`prune_zero`](@ref).
+"""
+function prune_zero! end
+
 
 # Variable
 
@@ -249,11 +266,8 @@ function (f::AffineFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     ret
 end
 
-function canonicalize!(f::AffineFunction; prune_zero=false)
+function canonicalize!(f::AffineFunction)
     sort_and_combine!(f.linear; by=term -> term.var.index, combine=combine, alg=Base.Sort.QuickSort)
-    if prune_zero
-        filter!(term -> !iszero(getcoeff(term)), f.linear)
-    end
     f
 end
 
@@ -262,8 +276,6 @@ $(SIGNATURES)
 
 Return a canonicalized version of `f::AffineFunction`, namely with linear terms
 sorted by variable index and with terms corresponding to the same variable combined.
-
-The `prune_zero` keyword argument (default: `false`) can be used to omit terms with zero coefficients.
 
 # Example
 
@@ -277,7 +289,14 @@ julia> canonicalize(f)
 1 * x1 + -1 * x2 + 3
 ```
 """
-canonicalize(f::AffineFunction; prune_zero=false) = canonicalize!(AffineFunction(f); prune_zero=prune_zero)
+canonicalize(f::AffineFunction) = canonicalize!(AffineFunction(f))
+
+function prune_zero!(f::AffineFunction{T}; atol=zero(T)) where T
+    filter!(term -> abs(getcoeff(term)) > atol, f.linear)
+    f
+end
+
+prune_zero(f::AffineFunction; kwargs...) = prune_zero!(AffineFunction(f); kwargs...)
 
 # QuadraticFunction
 
@@ -359,13 +378,10 @@ function (f::QuadraticFunction{T})(vals::AbstractDict{Variable, S}) where {T, S}
     ret
 end
 
-function canonicalize!(f::QuadraticFunction; prune_zero=false)
-    canonicalize!(f.affine; prune_zero=prune_zero)
+function canonicalize!(f::QuadraticFunction)
+    canonicalize!(f.affine)
     canonicalized_variable_index_tuple = term -> (term = canonicalize(term); (term.rowvar.index, term.colvar.index))
     sort_and_combine!(f.quadratic; by=canonicalized_variable_index_tuple, combine=combine, alg=Base.Sort.QuickSort)
-    if prune_zero
-        filter!(term -> !iszero(getcoeff(term)), f.quadratic)
-    end
     f
 end
 
@@ -375,8 +391,6 @@ $(SIGNATURES)
 Return a canonicalized version of `f::QuadraticFunction`. See [`canonicalize(f::QuadraticTerm)`](@ref)
 and [`canonicalize(f::AffineFunction)`](@ref) for more details. Quadratic terms are ordered lexicographically
 by `(term.rowvar, term.colvar)`.
-
-The `prune_zero` keyword argument (default: `false`) can be used to omit terms with zero coefficients.
 
 # Example
 
@@ -390,7 +404,15 @@ julia> canonicalize(f)
 2 * x1 * x2 + 1 * x1 + 1 * x2 + 0
 ```
 """
-canonicalize(f::QuadraticFunction; prune_zero=false) = canonicalize!(QuadraticFunction(f); prune_zero=prune_zero)
+canonicalize(f::QuadraticFunction) = canonicalize!(QuadraticFunction(f))
+
+function prune_zero!(f::QuadraticFunction{T}; atol=zero(T)) where T
+    prune_zero!(f.affine)
+    filter!(term -> abs(getcoeff(term)) > atol, f.quadratic)
+    f
+end
+
+prune_zero(f::QuadraticFunction; kwargs...) = prune_zero!(QuadraticFunction(f); kwargs...)
 
 
 # copyto!

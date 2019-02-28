@@ -19,9 +19,9 @@ MOI.VariableIndex(v::Variable) = MOI.VariableIndex(v.index)
 # Sense conversion
 function MOI.OptimizationSense(sense::Sense)
     if sense == Minimize
-        MOI.MinSense
+        MOI.MIN_SENSE
     elseif sense == Maximize
-        MOI.MaxSense
+        MOI.MAX_SENSE
     else
         error()
     end

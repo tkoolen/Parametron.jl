@@ -25,9 +25,9 @@ end
 
 function test_unconstrained(model, x, Q, r, s; atol=1e-8)
     solve!(model)
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
-    @test dualstatus(model) == MOI.FeasiblePoint
+    @test terminationstatus(model) == MOI.OPTIMAL
+    @test primalstatus(model) == MOI.FEASIBLE_POINT
+    @test dualstatus(model) == MOI.FEASIBLE_POINT
     xval = value.(model, x)
     expected = -2 * Q() \ r()
     @test xval ≈ expected atol = atol
@@ -115,8 +115,8 @@ end
 
     for i = 1 : 100
         allocs = @allocated solve!(model)
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
+        @test terminationstatus(model) == MOI.OPTIMAL
+        @test primalstatus(model) == MOI.FEASIBLE_POINT
         if i > 1
             @test allocs == 0
         end
@@ -228,8 +228,8 @@ end
 
     solve!(model)
 
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
+    @test terminationstatus(model) == MOI.OPTIMAL
+    @test primalstatus(model) == MOI.FEASIBLE_POINT
     @test value(model, x) ≈ 1.0 atol=1e-8
 end
 
@@ -245,8 +245,8 @@ end
 
         solve!(model)
 
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
+        @test terminationstatus(model) == MOI.OPTIMAL
+        @test primalstatus(model) == MOI.FEASIBLE_POINT
         @test value(model, x) ≈ 1.0 atol=1e-8
     end
 
@@ -260,8 +260,8 @@ end
 
         solve!(model)
 
-        @test terminationstatus(model) == MOI.Success
-        @test primalstatus(model) == MOI.FeasiblePoint
+        @test terminationstatus(model) == MOI.OPTIMAL
+        @test primalstatus(model) == MOI.FEASIBLE_POINT
         @test value(model, x) ≈ 1.0 atol=1e-8
     end
 end
@@ -290,8 +290,8 @@ end
     @constraint model x +  y      >= 1
     solve!(model)
 
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
+    @test terminationstatus(model) == MOI.OPTIMAL
+    @test primalstatus(model) == MOI.FEASIBLE_POINT
     @test objectivevalue(model) ≈ 13/7 atol=1e-6
     @test value.(model, [x, y, z]) ≈ [4/7, 3/7, 6/7] atol=1e-6
 
@@ -311,8 +311,8 @@ end
     @constraint model x + y == 1
     solve!(model)
 
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
+    @test terminationstatus(model) == MOI.OPTIMAL
+    @test primalstatus(model) == MOI.FEASIBLE_POINT
     @test objectivevalue(model) ≈ 2.875 atol=1e-6
     @test value.(model, [x, y]) ≈ [0.25, 0.75] atol=1e-6
 
@@ -331,8 +331,8 @@ end
     x = Variable(model)
     @constraint model x == 1
     solve!(model)
-    @test terminationstatus(model) == MOI.Success
-    @test primalstatus(model) == MOI.FeasiblePoint
+    @test terminationstatus(model) == MOI.OPTIMAL
+    @test primalstatus(model) == MOI.FEASIBLE_POINT
     @test objectivevalue(model) == 0.0
     @test value(model, x) ≈ 1.0 atol=1e-6
 end
@@ -383,8 +383,8 @@ end
 
         for i = 1 : 5
             solve!(model)
-            @test terminationstatus(model) == MOI.Success
-            @test primalstatus(model) == MOI.FeasiblePoint
+            @test terminationstatus(model) == MOI.OPTIMAL
+            @test primalstatus(model) == MOI.FEASIBLE_POINT
 
             xval, yval, zval = value.(model, (x, y, z))
             @test zval ≈ zmax() atol=1e-6

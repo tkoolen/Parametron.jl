@@ -5,6 +5,7 @@ os:
   - osx
 julia:
   - 1.0
+  - 1.1
   - nightly
 matrix:
   allow_failures:
@@ -16,11 +17,11 @@ branches:
 notifications:
   email: false
 after_success:
-  - julia -e 'using Pkg; pkg"add Coverage@0.6.0"; using Coverage; Codecov.submit(process_folder())'
+- julia --project -e 'using Pkg; pkg"add Coverage"; using Coverage; Codecov.submit(Codecov.process_folder())';
 jobs:
   include:
     - stage: Documentation
-      julia: 1.0
+      julia: 1.1
       os: linux
       script:
         - julia --project=docs -e 'using Pkg; Pkg.instantiate()'

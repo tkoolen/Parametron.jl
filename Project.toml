@@ -1,0 +1,26 @@
+name = "Parametron"
+uuid = "41fac6d6-0ffa-5bcc-b863-17dd4947be41"
+
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+
+[compat]
+FunctionWrappers = "≥ 0.1.0"
+MathOptInterface = "~0.8.0"
+StaticArrays = "≥ 0.7.0"
+julia = "≥ 0.7.0"
+
+[extras]
+GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OSQP = "ab2f91bb-94b4-55e3-9ba0-7f65df51de79"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["StaticArrays", "GLPK", "OSQP", "LinearAlgebra", "Random", "Test"]

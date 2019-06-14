@@ -261,4 +261,10 @@ end
     @test x^2 * SVector(1, 2) === SVector(1, 2) * x^2 === SVector(x^2, 2 * x^2)
 end
 
+@testset "SVector dot" begin
+    x = Variable(1)
+    y = Variable(2)
+    @test SVector(x, y)
+end
+
 end # module

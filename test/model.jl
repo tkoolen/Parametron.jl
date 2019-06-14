@@ -363,7 +363,7 @@ end
 
 @testset "Quadratic constraints" begin
     if !haskey(ENV, "CI")
-        using Gurobi # not in REQUIRE...
+        using Gurobi
         rng = MersenneTwister(1)
         optimizer = Gurobi.Optimizer(OutputFlag=0)
         model = Model(optimizer)

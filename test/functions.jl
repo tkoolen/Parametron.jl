@@ -263,7 +263,7 @@ end
 
 @testset "zero" begin
     x = Variable(1)
-    @test zero(x) === LinearTerm(false, x)
+    @test zero(x) === LinearTerm(0, x)
     @test zero(3.0 * x) === LinearTerm(0.0, x)
     @test zero(4 * x * x) === QuadraticTerm(0, x, x)
 end

@@ -261,10 +261,17 @@ end
     @test x^2 * SVector(1, 2) === SVector(1, 2) * x^2 === SVector(x^2, 2 * x^2)
 end
 
+@testset "zero" begin
+    x = Variable(1)
+    @test zero(x) === LinearTerm(false, x)
+    @test zero(3.0 * x) === LinearTerm(0.0, x)
+    @test zero(4 * x * x) === QuadraticTerm(0, x, x)
+end
+
 @testset "SVector dot" begin
     x = Variable(1)
     y = Variable(2)
-    @test SVector(x, y)
+    @test canonicalize(dot(SVector(x, y), SVector(x, y))) == x^2 + y^2
 end
 
 end # module

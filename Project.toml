@@ -1,6 +1,6 @@
 name = "Parametron"
 uuid = "41fac6d6-0ffa-5bcc-b863-17dd4947be41"
-version = "0.9.0"
+version = "0.9.1"
 
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"

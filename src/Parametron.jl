@@ -38,8 +38,7 @@ export
 using LinearAlgebra
 using DocStringExtensions
 
-include("FunctionWrappersQuickFix.jl")
-using .FunctionWrappersQuickFix: FunctionWrapper
+using FunctionWrappers: FunctionWrapper
 
 import MathOptInterface
 import MacroTools: @capture, postwalk

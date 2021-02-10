@@ -115,7 +115,7 @@ Users should generally not need to call this function directly, as it is automat
 called the first time [`solve!`](@ref) is called on a `Model`.
 """
 @noinline function initialize!(m::Model)
-    indexmap = MOI.copy_to(m.optimizer, m.backend)
+    indexmap = MOI.copy_to(m.optimizer, m.backend, copy_names=false)
     mapindices!(m, indexmap)
     m.initialized = true
     nothing

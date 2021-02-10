@@ -111,7 +111,7 @@ moi_to_native_type(::Type{MOI.SingleVariable}) = Nothing
 
 # Objective
 struct Objective{E, F}
-    expr#::WrappedExpression{E}
+    expr::WrappedExpression{E}
     f::F
     isconstant::Bool
 end

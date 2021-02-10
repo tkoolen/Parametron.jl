@@ -94,13 +94,13 @@ end
     test_unconstrained(model, x, Q, r, s)
     solve!(model)
     allocs = @allocated solve!(model)
-    @test_broken allocs == 0
+    @test allocs == 0
 
     # constant modification
     sval[] = 2.0
     test_unconstrained(model, x, Q, r, s)
     allocs = @allocated solve!(model)
-    @test_broken allocs == 0
+    @test allocs == 0
 end
 
 @testset "Model: equality constrained" begin
@@ -141,7 +141,7 @@ end
         @test terminationstatus(model) == MOI.OPTIMAL
         @test primalstatus(model) == MOI.FEASIBLE_POINT
         if i > 1
-            @test_broken allocs == 0
+            @test allocs == 0
         end
         test_equality_constrained(A(), b(), C(), d(), value.(model, x))
     end
@@ -189,7 +189,7 @@ end
         allocs = @allocated solve!(model)
         expected = p() ./ 2
         @test value.(model, x) ≈ expected rtol = 1e-4
-        testnum > 1 && @test_broken allocs == 0
+        testnum > 1 && @test allocs == 0
     end
 end
 

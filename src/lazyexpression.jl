@@ -64,8 +64,8 @@ end
 # Wrapping
 const WrappedExpression{T} = LazyExpression{FunctionWrapper{T, Tuple{}}, Tuple{}}
 
-Base.convert(::Type{WrappedExpression{T}}, expr::LazyExpression) where {T} =
-    LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
+Base.convert(::Type{WrappedExpression{T}}, expr::LazyExpression) where {T} = expr
+    # LazyExpression(FunctionWrapper{T, Tuple{}}(expr))
 Base.convert(::Type{WrappedExpression{T}}, expr::WrappedExpression{T}) where {T} = expr
 Base.convert(::Type{WrappedExpression{T}}, value::T) where {T} =
     convert(WrappedExpression{T}, LazyExpression(identity, value))

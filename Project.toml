@@ -10,10 +10,10 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 
 [compat]
-FunctionWrappers = "≥ 0.1.0"
-MathOptInterface = "~0.8.0"
-StaticArrays = "≥ 0.7.0"
-julia = "≥ 0.7.0"
+FunctionWrappers = "1.1"
+MathOptInterface = "0.9"
+StaticArrays = "1.0"
+julia = "1.5"
 
 [extras]
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"

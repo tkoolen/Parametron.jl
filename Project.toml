@@ -10,19 +10,19 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 
 [compat]
-FunctionWrappers = "≥ 0.1.0"
-MathOptInterface = "~0.8.0"
-StaticArrays = "≥ 0.7.0"
-julia = "≥ 0.7.0"
+FunctionWrappers = "1.1"
+MathOptInterface = "0.9"
+StaticArrays = "1.0"
+julia = "1.5"
 
 [extras]
-GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
-Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 OSQP = "ab2f91bb-94b4-55e3-9ba0-7f65df51de79"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SCIP = "82193955-e24f-5292-bf16-6f2c5261a85f"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["StaticArrays", "GLPK", "OSQP", "LinearAlgebra", "Random", "Test", "Gurobi"]
+test = ["StaticArrays", "OSQP", "LinearAlgebra", "Random", "Test", "SCIP", "Cbc"]

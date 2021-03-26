@@ -6,20 +6,43 @@ using LinearAlgebra
 using Parametron
 using OSQP
 using OSQP.MathOptInterfaceOSQP: OSQPSettings
-using GLPK
+using Cbc
+using SCIP
 using StaticArrays: SVector
 
 import MathOptInterface
 
 const MOI = MathOptInterface
+const MOIU = MOI.Utilities
+const MOIB = MOI.Bridges
 
-function defaultoptimizer()
+function linear_quadratic_optimizer()
     optimizer = OSQP.Optimizer()
     MOI.set(optimizer, OSQPSettings.Verbose(), false)
     MOI.set(optimizer, OSQPSettings.EpsAbs(), 1e-8)
     MOI.set(optimizer, OSQPSettings.EpsRel(), 1e-16)
     MOI.set(optimizer, OSQPSettings.MaxIter(), 10000)
     MOI.set(optimizer, OSQPSettings.AdaptiveRhoInterval(), 25) # required for deterministic behavior
+    optimizer
+end
+
+function mixed_integer_optimizer(;add_bridges=false)
+    # TODO: figure out a bridging setup to support vector constraints?
+    optimizer = Cbc.Optimizer()
+    MOI.set(optimizer, MOI.Silent(), true)
+    if add_bridges
+        cache = MOIU.UniversalFallback(MOIU.Model{Float64}())
+        cached = MOIU.CachingOptimizer(cache, optimizer)
+        bridged = MOIB.full_bridge_optimizer(cached, Float64)
+        return bridged
+    else
+        return optimizer
+    end
+end
+
+function qcqp_optimizer()
+    optimizer = SCIP.Optimizer()
+    MOI.set(optimizer, SCIP.Param("display/verblevel"), 0)
     optimizer
 end
 
@@ -35,7 +58,7 @@ function test_unconstrained(model, x, Q, r, s; atol=1e-8)
 end
 
 @testset "Model: unconstrained" begin
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     n = 2
     x = [Variable(model) for _ = 1 : n]
@@ -94,7 +117,7 @@ end
     n = 8
     m = 2
 
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = [Variable(model) for _ = 1 : n]
 
@@ -131,7 +154,7 @@ end
 
     n = 10
 
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = [Variable(model) for _ = 1 : n]
 
@@ -171,7 +194,7 @@ end
 end
 
 @testset "Issue 30 #1" begin
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = Variable(model)
     @constraint(model, [x] <= [-3.])
@@ -183,7 +206,7 @@ end
 end
 
 @testset "Issue 30 #2" begin
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     constraintexpr(x, upperbound) = @expression [x] - [upperbound]
     x = Variable(model)
@@ -196,7 +219,7 @@ end
 end
 
 @testset "Issue 29" begin
-    model = Model(defaultoptimizer())
+    model = Model(linear_quadratic_optimizer())
     x = Variable(model)
     @constraint model [x] >= [0]
     @objective model Minimize x^2 + 1
@@ -206,7 +229,7 @@ end
 end
 
 @testset "MOI Issue 426" begin
-    model = Model(defaultoptimizer())
+    model = Model(linear_quadratic_optimizer())
     x = Variable(model)
     for vector_set_type in (MOI.Nonnegatives, MOI.Nonpositives, MOI.Zeros)
         @test(length(@inferred(MOI.get(model.backend, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{Float64}, vector_set_type}()))) == 0)
@@ -220,7 +243,7 @@ end
 end
 
 @testset "boolean basics" begin
-    optimizer = GLPK.Optimizer()
+    optimizer = mixed_integer_optimizer()
     model = Model(optimizer)
     x = Variable(model)
     @constraint model x ∈ {0, 1}
@@ -234,9 +257,8 @@ end
 end
 
 @testset "integer basics" begin
-    # https://github.com/JuliaOpt/GLPK.jl/issues/58
     @testset "scalar constraint" begin
-        optimizer = GLPK.Optimizer()
+        optimizer = mixed_integer_optimizer()
         model = Model(optimizer)
         x = Variable(model)
         @constraint model x ∈ ℤ
@@ -251,7 +273,7 @@ end
     end
 
     @testset "vector constraint" begin
-        optimizer = GLPK.Optimizer()
+        optimizer = mixed_integer_optimizer(add_bridges=true)
         model = Model(optimizer)
         x = Variable(model)
         @constraint model x ∈ ℤ
@@ -267,7 +289,7 @@ end
 end
 
 @testset "scalar constraints 1" begin
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = Variable(model)
     @constraint(model, x <= -3)
@@ -280,7 +302,7 @@ end
 
 @testset "scalar constraints 2" begin
     # from https://github.com/JuliaOpt/MathOptInterface.jl/blob/575647cfa344ed7656e0eee16537017184a011a8/src/Test/contquadratic.jl#L3
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = Variable(model)
     y = Variable(model)
@@ -301,7 +323,7 @@ end
 
 @testset "scalar constraints 3" begin
     # from https://github.com/JuliaOpt/MathOptInterface.jl/blob/575647cfa344ed7656e0eee16537017184a011a8/src/Test/contquadratic.jl#L160
-    optimizer = defaultoptimizer()
+    optimizer = linear_quadratic_optimizer()
     model = Model(optimizer)
     x = Variable(model)
     y = Variable(model)
@@ -321,13 +343,13 @@ end
 end
 
 @testset "AbstractVector constraints" begin
-    model = Model(defaultoptimizer())
+    model = Model(linear_quadratic_optimizer())
     x = SVector(Variable(model), Variable(model))
     @constraint model x == SVector(1.0, 2.0)
 end
 
 @testset "default objective (issue #62)" begin
-    model = Model(defaultoptimizer())
+    model = Model(linear_quadratic_optimizer())
     x = Variable(model)
     @constraint model x == 1
     solve!(model)
@@ -343,7 +365,7 @@ end
     n, m = 5, 15
     Xdata = randn(n, m)
     pdata = Vector{Float64}(undef, m);
-    model = Model(defaultoptimizer())
+    model = Model(linear_quadratic_optimizer())
     X = Parameter(model, val=Xdata)
     p = Parameter(model, val=pdata)
     g = [Variable(model) for _ = 1:n]
@@ -361,35 +383,36 @@ end
     @test gv ≈ ggt rtol=0.01
 end
 
-@testset "Quadratic constraints" begin
-    if !haskey(ENV, "CI")
-        using Gurobi
-        rng = MersenneTwister(1)
-        optimizer = Gurobi.Optimizer(OutputFlag=0)
-        model = Model(optimizer)
+@testset "quadratic constraints" begin
+    rng = MersenneTwister(1)
+    optimizer = qcqp_optimizer()
+    model = Model(optimizer)
 
-        direction = Parameter(x -> normalize!(randn!(rng, x)), zeros(2), model)
-        zmax = Parameter{Float64}(() -> rand(rng), model)
+    direction = Parameter(x -> normalize!(randn!(rng, x)), zeros(2), model)
+    # zmax = Parameter{Float64}(() -> rand(rng), model)
+    zmax = 1.0
 
-        x = Variable(model)
-        y = Variable(model)
-        z = Variable(model)
-        μ = 0.7
+    x = Variable(model)
+    y = Variable(model)
+    z = Variable(model)
+    μ = 0.7
 
-        @constraint model x^2 + y^2 <= μ^2 * z^2
-        @constraint model z >= 0
-        @constraint model z <= zmax
-        @objective model Maximize direction ⋅ [x, y]
+    @constraint model x^2 + y^2 <= μ^2 * z^2
+    @constraint model z >= 0
 
-        for i = 1 : 5
-            solve!(model)
-            @test terminationstatus(model) == MOI.OPTIMAL
-            @test primalstatus(model) == MOI.FEASIBLE_POINT
+    #TODO: SCIP doesn't like affine constraint functions with a nonzero constant.
+    # @constraint model z <= zmax
+    Parametron.add_constraint(model, Parametron.Constraint(Float64, z, MOI.LessThan(zmax)))
+    @objective model Maximize direction ⋅ [x, y]
 
-            xval, yval, zval = value.(model, (x, y, z))
-            @test zval ≈ zmax() atol=1e-6
-            @test [xval, yval] ⋅ direction() ≈ zval * μ atol=1e-6
-        end
+    for i = 1 : 5
+        solve!(model)
+        @test terminationstatus(model) == MOI.OPTIMAL
+        @test primalstatus(model) == MOI.FEASIBLE_POINT
+
+        xval, yval, zval = value.(model, (x, y, z))
+        @test zval ≈ zmax atol=1e-6
+        @test [xval, yval] ⋅ direction() ≈ zval * μ atol=1e-6
     end
 end
 

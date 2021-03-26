@@ -139,7 +139,7 @@ end
 
 # Constraint
 mutable struct Constraint{E, F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
-    expr::WrappedExpression{E}
+    expr#::WrappedExpression{E}
     f::F
     set::S
     isconstant::Bool
